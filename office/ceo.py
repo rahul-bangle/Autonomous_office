@@ -11,6 +11,8 @@ os.environ["OPENAI_API_KEY"] = "NA"
 
 from langchain_groq import ChatGroq
 from ddgs import DDGS
+from dotenv import load_dotenv
+load_dotenv()
 
 # ── LOGGING ────────────────────────────────────────────
 logging.basicConfig(
