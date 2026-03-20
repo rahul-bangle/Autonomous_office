@@ -12,8 +12,8 @@ import httpx
 
 load_dotenv(override=True)
 
-SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://lgovxpvqhcvzagcfamwj.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imxnb3Z4cHZxaGN2emFnY2ZhbXdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NTI1MjksImV4cCI6MjA4NzUyODUyOX0.6fQkAmcalHYqu40T4s5CwXygfiJVEokhtNp_wbFYmyo")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 async def fetch_agent_memories(agent_name: str) -> str:
     try:

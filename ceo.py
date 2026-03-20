@@ -33,7 +33,7 @@ logging.basicConfig(
 log = logging.getLogger("CEO")
 
 # ── CONFIG ─────────────────────────────────────────────
-GROQ_API_KEY   = "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"
+GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
 MAX_ITER       = 5
 CANDIDATES     = 3
 BOOT_WAIT      = 5
