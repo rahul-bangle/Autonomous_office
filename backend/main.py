@@ -69,7 +69,7 @@ If it is a generic greeting, small-talk, or standard task execution without pers
 # ─── SKILL LOADER ─────────────────────────────────────────────────────────────
 AVAILABLE_SKILLS = {}
 
-def load_skills():
+async def load_skills():
     global AVAILABLE_SKILLS
     skills_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "skills")
     os.makedirs(skills_dir, exist_ok=True)
