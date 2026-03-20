@@ -34,6 +34,13 @@
       "score": 0.25,
       "result": "no_improvement",
       "ts": "2026-03-20T14:57:21.173240"
+    },
+    {
+      "issue": "backend/main.py has 0 async flows \u2014 convert routes to async def",
+      "patch_type": "async",
+      "score": 0.25,
+      "result": "no_improvement",
+      "ts": "2026-03-20T14:57:44.976129"
     }
   ],
   "wins": []
