@@ -1,26 +1,27 @@
 """
 ╔══════════════════════════════════════════════════════╗
-║       OFFICE OS — CEO AGENT v4-FINAL                 ║
-║   v3 signals + v4 diff-patch + regression guard      ║
-║   Darwin loop. Real scoring. Never regresses.        ║
+║       OFFICE OS — CEO AGENT v5-FINAL                 ║
+║   SELF-SCANNING: Khud dhundta hai problems           ║
+║   Fuzzy patch. Anti-junk. No fake signals.           ║
 ╚══════════════════════════════════════════════════════╝
 
 LOOP:
-SIGNAL → CLASSIFY → GENERATE(x3) → TEST → SCORE → SELECT → REGRESS-CHECK → COMMIT → REPEAT
+SCAN → DETECT → CLASSIFY → VARY(x3) → TEST → SCORE → SELECT → COMMIT → REPEAT
 """
 
 import os
+import ast
 import json
 import time
 import subprocess
 import logging
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 
 os.environ["OPENAI_API_KEY"] = "NA"
 
 from langchain_groq import ChatGroq
-from ddgs import DDGS
 
 # ── LOGGING ────────────────────────────────────────────
 logging.basicConfig(
@@ -34,12 +35,12 @@ log = logging.getLogger("CEO")
 GROQ_API_KEY   = "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"
 MAX_ITER       = 5
 CANDIDATES     = 3
-MAX_DELTA      = 30          # max line changes per patch
-BOOT_WAIT      = 5           # HDD needs 5s not 2s
+BOOT_WAIT      = 5
 STATE_FILE     = Path(".office/state.json")
 MEMORY_FILE    = Path(".office/memory.json")
 BLACKLIST_FILE = Path(".office/blacklist.json")
 BACKEND_LOG    = Path("backend/server.log")
+BACKEND_MAIN   = Path("backend/main.py")
 ALLOWED        = ("src/", "backend/")
 
 
@@ -55,14 +56,171 @@ def get_llm(temp=0.2) -> ChatGroq:
 
 
 # ══════════════════════════════════════════════════════
-# PROBLEM CLASSIFIER (v3)
+# SELF-SCANNER — real problems only
+# ══════════════════════════════════════════════════════
+
+def scan_syntax(filepath: Path) -> list[dict]:
+    issues = []
+    if not filepath.exists():
+        return issues
+    try:
+        ast.parse(filepath.read_text(encoding="utf-8"))
+    except SyntaxError as e:
+        issues.append({
+            "source": "syntax_scan",
+            "description": f"{filepath}: SyntaxError line {e.lineno} — {e.msg}",
+            "severity": 5, "frequency": 5, "effort": 1,
+        })
+    return issues
+
+
+def scan_missing_endpoints(filepath: Path) -> list[dict]:
+    issues = []
+    if not filepath.exists():
+        return issues
+    source = filepath.read_text(encoding="utf-8", errors="ignore")
+    required = {
+        "/health":   '@app.get("/health")',
+        "/api/chat": '@app.post("/api/chat")',
+    }
+    for endpoint, pattern in required.items():
+        if pattern not in source:
+            issues.append({
+                "source": "endpoint_scan",
+                "description": f"backend/main.py missing endpoint: {endpoint} — add {pattern} returning JSON",
+                "severity": 4, "frequency": 4, "effort": 1,
+            })
+    return issues
+
+
+def scan_import_errors(filepath: Path) -> list[dict]:
+    issues = []
+    if not filepath.exists():
+        return issues
+    try:
+        result = subprocess.run(
+            ["py", "-3.11", "-m", "py_compile", str(filepath)],
+            capture_output=True, timeout=15, text=True
+        )
+        if result.returncode != 0:
+            for line in result.stderr.strip().splitlines()[-3:]:
+                if "Error" in line or "error" in line:
+                    issues.append({
+                        "source": "import_scan",
+                        "description": f"backend/main.py compile error: {line.strip()[:150]}",
+                        "severity": 4, "frequency": 3, "effort": 2,
+                    })
+    except Exception as e:
+        log.warning(f"[SCAN] Import scan failed: {e}")
+    return issues
+
+
+def scan_runtime_log() -> list[dict]:
+    issues = []
+    if not BACKEND_LOG.exists():
+        return issues
+    lines = BACKEND_LOG.read_text(encoding="utf-8", errors="ignore").splitlines()[-200:]
+    for line in reversed(lines):
+        if "ERROR" in line or "Exception" in line or " 500 " in line:
+            issues.append({
+                "source": "runtime_log",
+                "description": line.strip()[:200],
+                "severity": 4, "frequency": 3, "effort": 2,
+            })
+            if len(issues) >= 3:
+                break
+    return issues
+
+
+def scan_live_endpoints() -> list[dict]:
+    issues = []
+    for url, name in [
+        ("http://127.0.0.1:8000/health", "/health"),
+        ("http://127.0.0.1:8000/api/skills", "/api/skills"),
+    ]:
+        try:
+            res = urllib.request.urlopen(url, timeout=2)
+            if res.status != 200:
+                issues.append({
+                    "source": "live_scan",
+                    "description": f"Endpoint {name} returned {res.status} — should be 200",
+                    "severity": 3, "frequency": 3, "effort": 1,
+                })
+        except urllib.error.HTTPError as e:
+            issues.append({
+                "source": "live_scan",
+                "description": f"Endpoint {name} HTTP {e.code} — fix the route handler",
+                "severity": 3, "frequency": 3, "effort": 1,
+            })
+        except Exception:
+            pass
+    return issues
+
+
+def scan_code_quality(filepath: Path) -> list[dict]:
+    issues = []
+    if not filepath.exists():
+        return issues
+    lines = filepath.read_text(encoding="utf-8", errors="ignore").splitlines()
+    bare = [i+1 for i, l in enumerate(lines) if l.strip() == "except:"]
+    if bare:
+        issues.append({
+            "source": "quality_scan",
+            "description": f"backend/main.py line(s) {bare[:3]}: bare except — use except Exception as e",
+            "severity": 2, "frequency": 2, "effort": 1,
+        })
+    return issues
+
+
+def scan_memory() -> list[dict]:
+    issues = []
+    if not MEMORY_FILE.exists():
+        return issues
+    try:
+        data = json.loads(MEMORY_FILE.read_text())
+        for m in data.get("failures", [])[-3:]:
+            issues.append({
+                "source": "memory",
+                "description": f"Past fail: {m['issue']} — retry with different approach",
+                "severity": 2, "frequency": 3, "effort": 2,
+            })
+    except:
+        pass
+    return issues
+
+
+def gather_all_issues() -> list[dict]:
+    log.info("[SCAN] Self-scanning codebase...")
+    all_issues = (
+        scan_syntax(BACKEND_MAIN) +
+        scan_missing_endpoints(BACKEND_MAIN) +
+        scan_import_errors(BACKEND_MAIN) +
+        scan_runtime_log() +
+        scan_live_endpoints() +
+        scan_code_quality(BACKEND_MAIN) +
+        scan_memory()
+    )
+    seen, unique = set(), []
+    for i in all_issues:
+        key = i["description"][:60]
+        if key not in seen:
+            seen.add(key)
+            unique.append(i)
+    log.info(f"[SCAN] {len(unique)} real issues found")
+    for i in unique:
+        log.info(f"  [{i['source']}] {i['description'][:80]}")
+    return unique
+
+
+# ══════════════════════════════════════════════════════
+# PRIORITY + CLASSIFY
 # ══════════════════════════════════════════════════════
 CLASSES = {
-    "runtime": ["timeout", "500", "exception", "traceback", "error", "crash"],
-    "syntax":  ["syntaxerror", "indentation", "nameerror", "missing import"],
-    "async":   ["async", "await", "coroutine", "flow"],
-    "perf":    ["slow", "latency", "performance", "memory"],
-    "missing": ["missing", "not found", "no route", "404"],
+    "syntax":  ["syntaxerror", "compile error", "indentation"],
+    "missing": ["missing endpoint", "not found", "no route", "404"],
+    "runtime": ["500", "exception", "traceback", "error", "crash"],
+    "async":   ["async", "await", "sync route"],
+    "quality": ["bare except", "code smell"],
 }
 
 def classify(issue: str) -> str:
@@ -72,113 +230,6 @@ def classify(issue: str) -> str:
             return cls
     return "general"
 
-
-# ══════════════════════════════════════════════════════
-# PROMPT — diff-based (v4), class-aware (v3)
-# ══════════════════════════════════════════════════════
-CLASS_HINTS = {
-    "runtime": "Focus on error handling, retries, safe defaults.",
-    "syntax":  "Fix syntax only. Zero logic changes.",
-    "async":   "Add proper async/await. FastAPI patterns only.",
-    "perf":    "Optimize hot path. No new dependencies.",
-    "missing": "Add missing piece only. Nothing extra.",
-    "general": "Minimal correct change only.",
-}
-
-def build_prompt(task: str, cls: str, attempt: int) -> str:
-    style = ["minimal", "defensive", "refactored"][attempt % 3]
-    hint  = CLASS_HINTS.get(cls, CLASS_HINTS["general"])
-    return f"""You are a senior developer. Style: {style}.
-
-ISSUE TYPE: {cls}
-HINT: {hint}
-
-ISSUE:
-{task}
-
-OUTPUT FORMAT (no extra text, no explanation):
-file: <relative_path>
-change:
-- <exact old line>
-+ <exact new line>
-
-RULES:
-- Max {MAX_DELTA} line changes
-- Exactly 1 file
-- Path must start with src/ or backend/
-- If no change needed: NO_PATCH_NEEDED
-"""
-
-
-# ══════════════════════════════════════════════════════
-# SIGNALS — v3 multi-source (runtime + gitnexus + web + memory)
-# ══════════════════════════════════════════════════════
-def get_issues() -> list[dict]:
-    issues = []
-
-    # 1. Runtime log — highest quality signal
-    if BACKEND_LOG.exists():
-        for line in reversed(BACKEND_LOG.read_text(encoding="utf-8", errors="ignore").splitlines()[-200:]):
-            if "ERROR" in line or "Exception" in line or " 500 " in line:
-                issues.append({
-                    "source": "runtime",
-                    "description": line.strip()[:200],
-                    "severity": 4, "frequency": 3, "effort": 2,
-                })
-                if len(issues) >= 3:
-                    break  # top 3 runtime errors enough
-
-    # 2. GitNexus AGENTS.md / CLAUDE.md
-    for md in [Path("AGENTS.md"), Path("CLAUDE.md"),
-               Path(".claude/skills/gitnexus/AGENTS.md")]:
-        if md.exists():
-            for line in md.read_text(encoding="utf-8", errors="ignore").splitlines():
-                if "ERROR" in line or "Exception" in line:
-                    issues.append({
-                        "source": "gitnexus",
-                        "description": line.strip()[:150],
-                        "severity": 3, "frequency": 2, "effort": 2,
-                    })
-
-    # 3. Known structural issue (from scan: 0 async flows)
-    issues.append({
-        "source": "gitnexus",
-        "description": "backend/main.py has 0 async flows — convert routes to async def",
-        "severity": 3, "frequency": 3, "effort": 2,
-    })
-
-    # 4. Web signal — low priority
-    try:
-        with DDGS() as ddgs:
-            for r in ddgs.text("fastapi async patterns fix 2025", max_results=2):
-                issues.append({
-                    "source": "web",
-                    "description": f"{r.get('title','')} — {r.get('body','')[:80]}",
-                    "severity": 1, "frequency": 1, "effort": 3,
-                })
-    except Exception as e:
-        log.warning(f"[SIG] Web search failed: {e}")
-
-    # 5. Memory failures
-    if MEMORY_FILE.exists():
-        try:
-            data = json.loads(MEMORY_FILE.read_text())
-            for m in data.get("failures", [])[-3:]:
-                issues.append({
-                    "source": "memory",
-                    "description": f"Past fail: {m['issue']} → retry: {m.get('patch_type','')}",
-                    "severity": 2, "frequency": 3, "effort": 2,
-                })
-        except:
-            pass
-
-    log.info(f"[SIG] Total signals: {len(issues)}")
-    return issues
-
-
-# ══════════════════════════════════════════════════════
-# PRIORITY ENGINE
-# ══════════════════════════════════════════════════════
 def pri_score(i: dict) -> float:
     s = i.get("severity", 1)
     f = i.get("frequency", 1)
@@ -188,60 +239,113 @@ def pri_score(i: dict) -> float:
 def prioritize(issues: list[dict]) -> list[dict]:
     for i in issues:
         i["pri"] = pri_score(i)
-    return sorted(issues, key=lambda x: x["pri"], reverse=True)
+    ranked = sorted(issues, key=lambda x: x["pri"], reverse=True)
+    if ranked:
+        log.info(f"[PRI] Top → [{ranked[0]['pri']}] {ranked[0]['description'][:70]}")
+    return ranked
 
 
 # ══════════════════════════════════════════════════════
-# APPLY PATCH — diff-based (v4), boundary-enforced
+# PROMPT — actual file content inject
+# ══════════════════════════════════════════════════════
+CLASS_HINTS = {
+    "syntax":  "Fix syntax only. Zero logic changes.",
+    "missing": "Add the missing endpoint. Return JSON. Minimal.",
+    "runtime": "Fix error handling. Add safe defaults.",
+    "async":   "Convert sync def to async def. FastAPI pattern.",
+    "quality": "Fix code quality. Surgical change only.",
+    "general": "Minimal correct change.",
+}
+
+def build_prompt(task: str, cls: str, attempt: int) -> str:
+    style = ["minimal", "defensive", "refactored"][attempt % 3]
+    hint  = CLASS_HINTS.get(cls, CLASS_HINTS["general"])
+
+    file_context = ""
+    for p in [Path("backend/main.py"), Path("src/App.jsx")]:
+        if p.exists():
+            content = p.read_text(encoding="utf-8", errors="ignore")
+            file_context += f"\n\nCURRENT FILE ({p}):\n```\n{content[:4000]}\n```"
+
+    return f"""You are a senior developer. Style: {style}.
+
+ISSUE TYPE: {cls}
+HINT: {hint}
+
+ISSUE:
+{task}
+{file_context}
+
+OUTPUT FORMAT — exactly this, nothing else:
+file: <relative_path>
+change:
+- <EXACT line from file above>
++ <new replacement line>
+
+RULES:
+- Max 10 line changes
+- 1 file only
+- Path starts with src/ or backend/
+- "- " line must EXACTLY match a line in the file shown
+- If nothing to change: NO_PATCH_NEEDED
+"""
+
+
+# ══════════════════════════════════════════════════════
+# APPLY PATCH — fuzzy + auto-discover + anti-junk
 # ══════════════════════════════════════════════════════
 def apply_patch(patch: str) -> tuple[bool, int]:
-    """Returns (success, delta_lines)"""
     if not patch or patch.strip() == "NO_PATCH_NEEDED":
         return True, 0
-
     if "file:" not in patch or "change:" not in patch:
         return False, 0
-
     try:
         path = patch.split("file:")[1].splitlines()[0].strip()
 
-        # boundary enforcement
+        # boundary check
         if not path.startswith(ALLOWED):
             log.error(f"[APPLY] BOUNDARY BLOCKED: {path}")
             return False, 0
 
+        # auto-discover if exact path not found
         target = Path(path)
         if not target.exists():
-            log.warning(f"[APPLY] File not found: {path}")
+            for p in Path("backend").rglob("*.py"):
+                if "main" in p.name or "app" in p.name:
+                    target = p
+                    log.info(f"[APPLY] Auto-discovered: {target}")
+                    break
+
+        if not target.exists():
+            log.error(f"[APPLY] File not found: {path}")
             return False, 0
 
-        lines = target.read_text(encoding="utf-8").splitlines()
-        new   = lines.copy()
-
+        lines   = target.read_text(encoding="utf-8").splitlines()
+        new     = lines.copy()
         changes = patch.split("change:")[1].splitlines()
         delta   = 0
 
         for i in range(len(changes) - 1):
             if changes[i].startswith("- ") and changes[i+1].startswith("+ "):
-                old_line = changes[i][2:]
+                old_line = changes[i][2:].strip()  # fuzzy strip
                 new_line = changes[i+1][2:]
-                # find first exact match (avoid duplicate line bug)
                 for j, l in enumerate(new):
-                    if l == old_line:
+                    if l.strip() == old_line or old_line in l:
                         new[j] = new_line
                         delta += 1
-                        break   # only first occurrence
+                        break
+                # NO append fallback — no junk injection
 
         if delta == 0:
-            log.warning("[APPLY] No matching lines found in file")
+            log.warning("[APPLY] No matching lines found")
             return False, 0
 
-        if delta > MAX_DELTA:
-            log.warning(f"[APPLY] Delta {delta} > MAX {MAX_DELTA} — blocked")
+        if delta > 10:  # anti-junk
+            log.warning(f"[APPLY] Too many changes ({delta}) → reject")
             return False, delta
 
         target.write_text("\n".join(new), encoding="utf-8")
-        log.info(f"[APPLY] ✅ {path} — {delta} line(s) changed")
+        log.info(f"[APPLY] ✅ {target} — {delta} line(s) changed")
         return True, delta
 
     except Exception as e:
@@ -250,7 +354,7 @@ def apply_patch(patch: str) -> tuple[bool, int]:
 
 
 # ══════════════════════════════════════════════════════
-# TEST ENGINE — real behavior (ChatGPT + my fixes merged)
+# TEST ENGINE
 # ══════════════════════════════════════════════════════
 def run_tests() -> dict:
     r = {
@@ -261,30 +365,27 @@ def run_tests() -> dict:
         "valid_json": False,
     }
 
-    # 1. syntax
     try:
         r["syntax"] = subprocess.run(
             ["py", "-3.11", "-m", "py_compile", "backend/main.py"],
             capture_output=True, timeout=10
         ).returncode == 0
     except FileNotFoundError:
-        r["syntax"] = True  # file missing = soft pass
+        r["syntax"] = True
 
-    # 2. import
     try:
         r["import_ok"] = subprocess.run(
-            ["py", "-3.11", "-c", "import sys; sys.path.insert(0,'.'); import backend.main"],
-            capture_output=True, timeout=10
+            ["py", "-3.11", "-c",
+             "import sys; sys.path.insert(0,'.'); import backend.main"],
+            capture_output=True, timeout=15
         ).returncode == 0
     except:
         pass
 
-    # 3. boot — HDD needs 5s
     try:
         p = subprocess.Popen(
             ["py", "-3.11", "backend/main.py"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
         time.sleep(BOOT_WAIT)
         p.terminate()
@@ -293,19 +394,15 @@ def run_tests() -> dict:
     except:
         pass
 
-    # 4. health endpoint
     if r["boot"]:
         try:
-            import urllib.request
             res = urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=3)
             r["health"] = (res.status == 200)
         except:
             pass
 
-    # 5. valid JSON response (ChatGPT addition ✅)
     if r["health"]:
         try:
-            import urllib.request
             res  = urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=3)
             data = json.loads(res.read().decode())
             r["valid_json"] = isinstance(data, dict)
@@ -316,9 +413,6 @@ def run_tests() -> dict:
     return r
 
 
-# ══════════════════════════════════════════════════════
-# SCORING — behavior-weighted (ChatGPT rebalance ✅)
-# ══════════════════════════════════════════════════════
 def compute_score(r: dict, delta: int = 0) -> float:
     s = 0.0
     if r["syntax"]:     s += 0.10
@@ -326,24 +420,20 @@ def compute_score(r: dict, delta: int = 0) -> float:
     if r["boot"]:       s += 0.25
     if r["health"]:     s += 0.25
     if r["valid_json"]: s += 0.20
-    if delta > 20:      s -= 0.30   # punish risky mutations
+    if delta > 20:      s -= 0.30
     return round(s, 3)
 
 
-# ══════════════════════════════════════════════════════
-# REGRESSION GUARD — ChatGPT's best suggestion ✅
-# Nothing that worked before can break after patch
-# ══════════════════════════════════════════════════════
-def regression_check(baseline: dict, new_results: dict) -> bool:
+def regression_check(baseline: dict, new_r: dict) -> bool:
     for k in baseline:
-        if baseline[k] and not new_results[k]:
-            log.error(f"[REGRESS] ❌ {k} was passing — now failing → REJECT")
+        if baseline[k] and not new_r[k]:
+            log.error(f"[REGRESS] ❌ {k} was OK — now failing → REJECT")
             return False
     return True
 
 
 # ══════════════════════════════════════════════════════
-# GIT — snapshot before, commit after
+# GIT
 # ══════════════════════════════════════════════════════
 def git_snapshot(label: str):
     subprocess.run(["git", "add", "-A"], capture_output=True, timeout=10)
@@ -352,23 +442,26 @@ def git_snapshot(label: str):
         capture_output=True, timeout=10, text=True
     )
     if "nothing to commit" not in (r.stdout or ""):
-        log.info(f"[GIT] Snapshot: {label[:50]}")
+        log.info(f"[GIT] Snapshot: {label[:40]}")
 
 def git_rollback():
-    subprocess.run(["git", "reset", "--hard", "HEAD"], capture_output=True, timeout=10)
-    log.info("[GIT] Rolled back")
-
-def git_commit_winner(iteration: int, score_val: float):
-    subprocess.run(["git", "add", "-A"], capture_output=True, timeout=10)
     subprocess.run(
-        ["git", "commit", "-m", f"CEO iter-{iteration} score:{score_val}"],
+        ["git", "reset", "--hard", "HEAD"],
         capture_output=True, timeout=10
     )
-    log.info(f"[GIT] Winner committed: iter-{iteration} score:{score_val}")
+    log.info("[GIT] Rolled back")
+
+def git_commit_winner(iteration: int, score: float):
+    subprocess.run(["git", "add", "-A"], capture_output=True, timeout=10)
+    subprocess.run(
+        ["git", "commit", "-m", f"CEO v5 iter-{iteration} score:{score}"],
+        capture_output=True, timeout=10
+    )
+    log.info(f"[GIT] ✅ Winner: score={score}")
 
 
 # ══════════════════════════════════════════════════════
-# BLACKLIST — regression memory (v3)
+# BLACKLIST + MEMORY
 # ══════════════════════════════════════════════════════
 def load_blacklist() -> list[str]:
     if not BLACKLIST_FILE.exists():
@@ -386,14 +479,9 @@ def blacklist_add(pattern: str):
     log.warning(f"[BLACKLIST] Added: {pattern[:60]}")
 
 def is_blacklisted(patch: str, bl: list[str]) -> bool:
-    low = patch.lower()
-    return any(b.lower() in low for b in bl)
+    return any(b.lower() in patch.lower() for b in bl)
 
-
-# ══════════════════════════════════════════════════════
-# MEMORY — fitness landscape
-# ══════════════════════════════════════════════════════
-def save_memory(issue: str, patch_type: str, score_val: float, result: str):
+def save_memory(issue: str, patch_type: str, score: float, result: str):
     MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
     data = {"failures": [], "wins": []}
     if MEMORY_FILE.exists():
@@ -404,12 +492,14 @@ def save_memory(issue: str, patch_type: str, score_val: float, result: str):
     entry = {
         "issue":      issue[:80],
         "patch_type": patch_type[:60],
-        "score":      score_val,
+        "score":      score,
         "result":     result,
         "ts":         datetime.now().isoformat()
     }
-    data.setdefault("wins" if result == "success" else "failures", []).append(entry)
+    key = "wins" if result == "success" else "failures"
+    data.setdefault(key, []).append(entry)
     MEMORY_FILE.write_text(json.dumps(data, indent=2))
+    log.info(f"[MEM] {result} | score={score} | {issue[:50]}")
 
 
 # ══════════════════════════════════════════════════════
@@ -417,9 +507,9 @@ def save_memory(issue: str, patch_type: str, score_val: float, result: str):
 # ══════════════════════════════════════════════════════
 def save_state(data: dict):
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps({
-        **data, "ts": datetime.now().isoformat()
-    }, indent=2))
+    STATE_FILE.write_text(json.dumps(
+        {**data, "ts": datetime.now().isoformat()}, indent=2
+    ))
 
 
 # ══════════════════════════════════════════════════════
@@ -427,16 +517,16 @@ def save_state(data: dict):
 # ══════════════════════════════════════════════════════
 def main():
     log.info("═" * 58)
-    log.info("  OFFICE OS — CEO AGENT v4-FINAL")
-    log.info("  SIGNAL→CLASSIFY→VARY→TEST→SCORE→REGRESS→COMMIT")
+    log.info("  OFFICE OS — CEO AGENT v5-FINAL")
+    log.info("  SELF-SCAN → DETECT → FIX → VERIFY → LEARN")
     log.info("═" * 58)
 
     if not GROQ_API_KEY:
         log.error("Set GROQ_API_KEY: $env:GROQ_API_KEY='your_key'")
         return
 
-    blacklist      = load_blacklist()
-    consec_fails   = 0
+    blacklist    = load_blacklist()
+    consec_fails = 0
 
     for iteration in range(1, MAX_ITER + 1):
         log.info(f"\n{'─'*58}")
@@ -445,13 +535,15 @@ def main():
 
         save_state({"iter": iteration, "status": "scanning"})
 
-        # ── GATHER + PRIORITIZE ─────────────────────────
-        issues = get_issues()
+        # ── SELF SCAN ───────────────────────────────────
+        issues = gather_all_issues()
+
         if not issues:
-            log.info("[CEO] No issues. System clean. Sleeping 30s...")
+            log.info("[CEO] No issues. System clean! Sleeping 30s...")
             time.sleep(30)
             continue
 
+        # ── PRIORITIZE ──────────────────────────────────
         ranked = prioritize(issues)
         top    = ranked[0]
         task   = f"[{top['source']}|{top['pri']}] {top['description']}"
@@ -463,72 +555,68 @@ def main():
         # ── BASELINE ────────────────────────────────────
         log.info("[CEO] Measuring baseline...")
         baseline_r = run_tests()
-        baseline_s = compute_score(baseline_r, 0)
-        log.info(f"[CEO] Baseline score: {baseline_s}")
+        baseline_s = compute_score(baseline_r)
+        log.info(f"[CEO] Baseline: {baseline_s}")
 
-        # ── GIT SNAPSHOT (safe point) ───────────────────
-        git_snapshot(f"iter{iteration}-pre")
+        # ── GIT SNAPSHOT ────────────────────────────────
+        git_snapshot(f"v5-iter{iteration}-pre")
 
         # ── GENERATE 3 CANDIDATES ───────────────────────
-        save_state({"iter": iteration, "status": "generating"})
+        save_state({"iter": iteration, "status": "generating", "task": task[:80]})
         best_patch = None
-        best_score = baseline_s   # must BEAT baseline
+        best_score = baseline_s
         best_delta = 0
 
         for c in range(CANDIDATES):
-            temp  = [0.2, 0.4, 0.6][c]   # increasing exploration
-            model = get_llm(temp)
-
+            temp = [0.2, 0.4, 0.6][c]
             log.info(f"\n[DARWIN] Candidate {c+1}/{CANDIDATES} (temp={temp})...")
+
             try:
-                patch = model.invoke(build_prompt(task, cls, c)).content.strip()
+                patch = get_llm(temp).invoke(
+                    build_prompt(task, cls, c)
+                ).content.strip()
             except Exception as e:
                 log.warning(f"[DARWIN] LLM failed: {e}")
                 continue
 
             if is_blacklisted(patch, blacklist):
-                log.warning(f"[DARWIN] Candidate {c+1} blacklisted — skip")
+                log.warning("[DARWIN] Blacklisted — skip")
                 continue
 
-            # reset to snapshot before each candidate
             git_rollback()
-
             ok, delta = apply_patch(patch)
             if not ok:
-                log.warning(f"[DARWIN] Candidate {c+1} apply failed")
                 continue
 
-            test_r  = run_tests()
-            cand_s  = compute_score(test_r, delta)
-            log.info(f"[DARWIN] Candidate {c+1} score: {cand_s}")
+            test_r = run_tests()
+            cand_s = compute_score(test_r, delta)
+            log.info(f"[DARWIN] Candidate {c+1} score: {cand_s} (baseline: {baseline_s})")
 
             if cand_s > best_score:
                 best_score = cand_s
                 best_patch = patch
                 best_delta = delta
 
-        # ── RESET TO SNAPSHOT ───────────────────────────
+        # ── RESET + SELECT ──────────────────────────────
         git_rollback()
 
-        # ── SELECT + REGRESSION GUARD ───────────────────
-        if best_patch:
+        if best_patch and best_score > baseline_s:
             apply_patch(best_patch)
             final_r = run_tests()
 
-            # regression check — ChatGPT's best idea ✅
-            if not regression_check(baseline_r, final_r):
-                log.error("[CEO] Regression detected → full rollback")
+            if regression_check(baseline_r, final_r):
+                git_commit_winner(iteration, best_score)
+                log.info(f"[CEO] ✅ WIN: {baseline_s} → {best_score}")
+                save_memory(top["description"], cls, best_score, "success")
+                save_state({"iter": iteration, "score": best_score, "status": "done"})
+                consec_fails = 0
+            else:
+                log.error("[CEO] Regression → rollback")
                 git_rollback()
                 blacklist_add(top["description"][:80])
                 blacklist.append(top["description"][:80])
                 save_memory(top["description"], cls, best_score, "regression")
                 consec_fails += 1
-            else:
-                git_commit_winner(iteration, best_score)
-                log.info(f"[CEO] ✅ WIN: {baseline_s} → {best_score} | delta={best_delta}")
-                save_memory(top["description"], cls, best_score, "success")
-                save_state({"iter": iteration, "score": best_score, "status": "done"})
-                consec_fails = 0
         else:
             log.warning(f"[CEO] No improvement over baseline ({baseline_s})")
             blacklist_add(top["description"][:80])
@@ -543,7 +631,7 @@ def main():
         log.info(f"[CEO] Sleeping 5s...")
         time.sleep(5)
 
-    log.info("\n[CEO] Loop complete. Office OS idle.")
+    log.info("\n[CEO] All iterations complete.")
     save_state({"iter": MAX_ITER, "status": "idle"})
 
 
