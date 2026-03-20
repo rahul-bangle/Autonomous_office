@@ -18,6 +18,7 @@ import logging
 import urllib.request
 from datetime import datetime
 from pathlib import Path
+import socket
 
 os.environ["OPENAI_API_KEY"] = "NA"
 
@@ -44,9 +45,33 @@ BACKEND_MAIN   = Path("backend/main.py")
 ALLOWED        = ("src/", "backend/")
 
 
-# ══════════════════════════════════════════════════════
-# LLM
-# ══════════════════════════════════════════════════════
+# ── MASTER CONTEXT HOOKS ──────────────────────────────
+def ceo_cycle_start(iteration, task):
+    try:
+        mc_path = Path("MASTER_CONTEXT.md")
+        if mc_path.exists():
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+            log_entry = f"\n[ {timestamp} ] CEO_CYCLE_START: Iteration {iteration}\nTASK: {task}\nSTATUS: 🔄 in_progress\n"
+            with open(mc_path, "a", encoding="utf-8") as f:
+                f.write(log_entry)
+            print(f"📟 Logged cycle start to MASTER_CONTEXT.md")
+    except Exception as e:
+        print(f"Failed to log to MASTER_CONTEXT: {e}")
+
+def ceo_cycle_end(iteration, result, score):
+    try:
+        mc_path = Path("MASTER_CONTEXT.md")
+        if mc_path.exists():
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+            status_icon = "✅" if result == "success" else "❌"
+            log_entry = f"[ {timestamp} ] CEO_CYCLE_END: Iteration {iteration}\nRESULT: {status_icon} {result}\nSCORE: {score}\n"
+            with open(mc_path, "a", encoding="utf-8") as f:
+                f.write(log_entry)
+            print(f"📟 Logged cycle end to MASTER_CONTEXT.md")
+    except Exception as e:
+        print(f"Failed to log to MASTER_CONTEXT: {e}")
+
+# ── LLM ───────────────────────────────────────────────
 def get_llm(temp=0.2) -> ChatGroq:
     return ChatGroq(
         api_key=GROQ_API_KEY,
@@ -237,6 +262,10 @@ def pri_score(i: dict) -> float:
     return round((s * 0.4) + (f * 0.3) + ((1 / (e + 1)) * 0.2), 3)
 
 def prioritize(issues: list[dict]) -> list[dict]:
+    # memory = guidance only, not priority
+    issues = [i for i in issues if i["source"] != "memory"]
+    if not issues:
+        return []
     for i in issues:
         i["pri"] = pri_score(i)
     ranked = sorted(issues, key=lambda x: x["pri"], reverse=True)
@@ -244,10 +273,18 @@ def prioritize(issues: list[dict]) -> list[dict]:
         log.info(f"[PRI] Top → [{ranked[0]['pri']}] {ranked[0]['description'][:70]}")
     return ranked
 
+def force_goal_issue(issues: list[dict]) -> dict:
+    for i in issues:
+        if "/health" in i["description"]:
+            return i
+    return None
+
 
 # ══════════════════════════════════════════════════════
 # PROMPT — actual file content inject
 # ══════════════════════════════════════════════════════
+GOAL = "health endpoint must return 200 with valid JSON"
+
 CLASS_HINTS = {
     "syntax":  "Fix syntax only. Zero logic changes.",
     "missing": "Add the missing endpoint. Return JSON. Minimal.",
@@ -268,6 +305,7 @@ def build_prompt(task: str, cls: str, attempt: int) -> str:
             file_context += f"\n\nCURRENT FILE ({p}):\n```\n{content[:4000]}\n```"
 
     return f"""You are a senior developer. Style: {style}.
+SYSTEM GOAL: {GOAL}
 
 ISSUE TYPE: {cls}
 HINT: {hint}
@@ -356,6 +394,11 @@ def apply_patch(patch: str) -> tuple[bool, int]:
 # ══════════════════════════════════════════════════════
 # TEST ENGINE
 # ══════════════════════════════════════════════════════
+def is_port_open(port=8000):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(1.0)
+        return s.connect_ex(("127.0.0.1", port)) == 0
+
 def run_tests() -> dict:
     r = {
         "syntax":     False,
@@ -387,12 +430,17 @@ def run_tests() -> dict:
             ["py", "-3.11", "backend/main.py"],
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
         )
-        time.sleep(BOOT_WAIT)
+        # Poll for port
+        for _ in range(BOOT_WAIT):
+            if is_port_open(8000):
+                r["boot"] = True
+                break
+            time.sleep(1)
+            
         p.terminate()
         p.wait(timeout=5)
-        r["boot"] = True
-    except:
-        pass
+    except Exception as e:
+        log.warning(f"[TEST] Boot check error: {e}")
 
     if r["boot"]:
         try:
@@ -415,12 +463,11 @@ def run_tests() -> dict:
 
 def compute_score(r: dict, delta: int = 0) -> float:
     s = 0.0
-    if r["syntax"]:     s += 0.10
-    if r["import_ok"]:  s += 0.20
-    if r["boot"]:       s += 0.25
-    if r["health"]:     s += 0.25
-    if r["valid_json"]: s += 0.20
-    if delta > 20:      s -= 0.30
+    if r["syntax"]:     s += 0.1
+    if r["import_ok"]:  s += 0.2
+    if r["boot"]:       s += 0.2
+    if r["health"]:     s += 0.3
+    if r["valid_json"]: s += 0.2
     return round(s, 3)
 
 
@@ -527,6 +574,7 @@ def main():
 
     blacklist    = load_blacklist()
     consec_fails = 0
+    last_tasks   = []
 
     for iteration in range(1, MAX_ITER + 1):
         log.info(f"\n{'─'*58}")
@@ -543,93 +591,125 @@ def main():
             time.sleep(30)
             continue
 
-        # ── PRIORITIZE ──────────────────────────────────
+        # ── PRIORITIZE + QUEUE ──────────────────────────
         ranked = prioritize(issues)
-        top    = ranked[0]
-        task   = f"[{top['source']}|{top['pri']}] {top['description']}"
-        cls    = classify(top["description"])
-
-        log.info(f"\n[CEO] Task : {task[:90]}")
-        log.info(f"[CEO] Class: {cls}")
-
-        # ── BASELINE ────────────────────────────────────
-        log.info("[CEO] Measuring baseline...")
-        baseline_r = run_tests()
-        baseline_s = compute_score(baseline_r)
-        log.info(f"[CEO] Baseline: {baseline_s}")
-
-        # ── GIT SNAPSHOT ────────────────────────────────
-        git_snapshot(f"v5-iter{iteration}-pre")
-
-        # ── GENERATE 3 CANDIDATES ───────────────────────
-        save_state({"iter": iteration, "status": "generating", "task": task[:80]})
-        best_patch = None
-        best_score = baseline_s
-        best_delta = 0
-
-        for c in range(CANDIDATES):
-            temp = [0.2, 0.4, 0.6][c]
-            log.info(f"\n[DARWIN] Candidate {c+1}/{CANDIDATES} (temp={temp})...")
-
-            try:
-                patch = get_llm(temp).invoke(
-                    build_prompt(task, cls, c)
-                ).content.strip()
-            except Exception as e:
-                log.warning(f"[DARWIN] LLM failed: {e}")
-                continue
-
-            if is_blacklisted(patch, blacklist):
-                log.warning("[DARWIN] Blacklisted — skip")
-                continue
-
-            git_rollback()
-            ok, delta = apply_patch(patch)
-            if not ok:
-                continue
-
-            test_r = run_tests()
-            cand_s = compute_score(test_r, delta)
-            log.info(f"[DARWIN] Candidate {c+1} score: {cand_s} (baseline: {baseline_s})")
-
-            if cand_s > best_score:
-                best_score = cand_s
-                best_patch = patch
-                best_delta = delta
-
-        # ── RESET + SELECT ──────────────────────────────
-        git_rollback()
-
-        if best_patch and best_score > baseline_s:
-            apply_patch(best_patch)
-            final_r = run_tests()
-
-            if regression_check(baseline_r, final_r):
-                git_commit_winner(iteration, best_score)
-                log.info(f"[CEO] ✅ WIN: {baseline_s} → {best_score}")
-                save_memory(top["description"], cls, best_score, "success")
-                save_state({"iter": iteration, "score": best_score, "status": "done"})
-                consec_fails = 0
-            else:
-                log.error("[CEO] Regression → rollback")
-                git_rollback()
-                blacklist_add(top["description"][:80])
-                blacklist.append(top["description"][:80])
-                save_memory(top["description"], cls, best_score, "regression")
-                consec_fails += 1
+        if not ranked:
+            log.info("[CEO] No prioritized issues. System clean! Sleeping 30s...")
+            time.sleep(30)
+            continue
+        
+        task_queue = []
+        forced = force_goal_issue(ranked)
+        if forced:
+            task_queue.append(forced)
+            for r in ranked:
+                if r != forced and len(task_queue) < 3:
+                    task_queue.append(r)
         else:
-            log.warning(f"[CEO] No improvement over baseline ({baseline_s})")
-            blacklist_add(top["description"][:80])
-            blacklist.append(top["description"][:80])
-            save_memory(top["description"], cls, baseline_s, "no_improvement")
-            consec_fails += 1
+            task_queue = ranked[:3]
 
-        if consec_fails >= 3:
-            log.error("[CEO] 3 consecutive failures. Halting.")
+        for top in task_queue:
+            task = f"[{top['source']}|{top['pri']}] {top['description']}"
+
+            if task in last_tasks:
+                log.warning(f"[CEO] Skipping repeated task: {task[:50]}")
+                continue
+            
+            last_tasks.append(task)
+            last_tasks = last_tasks[-10:]  # Keep a bit more history
+            
+            cls = classify(top["description"])
+            log.info(f"\n[CEO] >>> ACTIVE TASK: {task[:90]}")
+            log.info(f"[CEO] Role: {cls}")
+
+            ceo_cycle_start(iteration, task)
+
+            # ── BASELINE ────────────────────────────────────
+            log.info("[CEO] Measuring baseline...")
+            baseline_r = run_tests()
+            if baseline_r["health"] and baseline_r["valid_json"] and "/health" not in task:
+                log.info("[CEO] GOAL ACHIEVED — system stable. (Skipping non-essential task)")
+                continue # Try next task in queue or next iteration
+            
+            baseline_s = compute_score(baseline_r)
+            log.info(f"[CEO] Baseline Score: {baseline_s}")
+
+            # ── GIT SNAPSHOT ────────────────────────────────
+            git_snapshot(f"v5-iter{iteration}-task-{cls}")
+
+            # ── GENERATE 3 CANDIDATES ───────────────────────
+            save_state({"iter": iteration, "status": "generating", "task": task[:80]})
+            best_patch = None
+            best_score = baseline_s
+            best_delta = 0
+
+            for c in range(CANDIDATES):
+                temp = [0.2, 0.4, 0.6][c]
+                log.info(f"[DARWIN] Candidate {c+1}/{CANDIDATES} (temp={temp})...")
+
+                try:
+                    patch = get_llm(temp).invoke(
+                        build_prompt(task, cls, c)
+                    ).content.strip()
+                except Exception as e:
+                    log.warning(f"[DARWIN] LLM failed: {e}")
+                    continue
+
+                if is_blacklisted(patch, blacklist):
+                    log.warning("[DARWIN] Blacklisted — skip")
+                    continue
+
+                git_rollback()
+                ok, delta = apply_patch(patch)
+                if not ok:
+                    continue
+
+                test_r = run_tests()
+                cand_s = compute_score(test_r, delta)
+                log.info(f"[DARWIN] Cand {c+1} score: {cand_s} (base: {baseline_s})")
+
+                if cand_s > best_score:
+                    best_score = cand_s
+                    best_patch = patch
+                    best_delta = delta
+
+            # ── RESET + SELECT ──────────────────────────────
+            git_rollback()
+
+            if best_patch and best_score > baseline_s:
+                apply_patch(best_patch)
+                final_r = run_tests()
+
+                if regression_check(baseline_r, final_r):
+                    git_commit_winner(iteration, best_score)
+                    log.info(f"[CEO] ✅ FIXED: {baseline_s} → {best_score}")
+                    save_memory(top["description"], cls, best_score, "success")
+                    consec_fails = 0
+                    ceo_cycle_end(iteration, "success", best_score)
+                else:
+                    log.error("[CEO] Regression → rollback")
+                    git_rollback()
+                    blacklist_add(top["description"][:80])
+                    save_memory(top["description"], cls, best_score, "regression")
+                    consec_fails += 1
+                    ceo_cycle_end(iteration, "regression", best_score)
+            else:
+                log.warning(f"[CEO] No improvement for {cls}")
+                save_memory(top["description"], cls, baseline_s, "no_improvement")
+                ceo_cycle_end(iteration, "no_improvement", baseline_s)
+                # Don't increment consec_fails here necessarily, might just be a hard task.
+                # But we'll follow previous logic if desired.
+        
+        if baseline_r["health"] and baseline_r["valid_json"]:
+            log.info("[CEO] FULL GOAL REACHED — Stopping.")
             break
 
-        log.info(f"[CEO] Sleeping 5s...")
-        time.sleep(5)
+        if consec_fails >= 5: # Increased for queue
+            log.error("[CEO] Too many failures. Halting.")
+            break
+
+        log.info(f"[CEO] Iteration {iteration} complete. Sleeping 10s...")
+        time.sleep(10)
 
     log.info("\n[CEO] All iterations complete.")
     save_state({"iter": MAX_ITER, "status": "idle"})

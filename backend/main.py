@@ -1,3 +1,4 @@
+# Office OS v1.8 — FastAPI Backend
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 import os
@@ -95,7 +96,7 @@ async def load_skills():
             except Exception as e:
                 print(f"Skill load error [{item}]: {e}")
 
-load_skills()
+# load_skills() removed — moved to startup event
 
 # ─── WEB SEARCH ───────────────────────────────────────────────────────────────
 async def search_web(query: str, max_results: int = 3):
@@ -193,6 +194,11 @@ os.environ.setdefault("OPENAI_API_KEY", "NA")
 from crewai import Agent, Task, Crew, Process, LLM
 
 app = FastAPI()
+
+@app.on_event("startup")
+async def startup_event():
+    await load_skills()
+
 
 @app.get("/health")
 def health():
