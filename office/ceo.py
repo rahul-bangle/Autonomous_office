@@ -1,3 +1,13 @@
+"""
+╔══════════════════════════════════════════════════════╗
+║       OFFICE OS — CEO AGENT v4-FINAL                 ║
+║   v3 signals + v4 diff-patch + regression guard      ║
+║   Darwin loop. Real scoring. Never regresses.        ║
+╚══════════════════════════════════════════════════════╝
+
+LOOP:
+SIGNAL → CLASSIFY → GENERATE(x3) → TEST → SCORE → SELECT → REGRESS-CHECK → COMMIT → REPEAT
+"""
 
 import os
 import json
@@ -11,8 +21,6 @@ os.environ["OPENAI_API_KEY"] = "NA"
 
 from langchain_groq import ChatGroq
 from ddgs import DDGS
-from dotenv import load_dotenv
-load_dotenv()
 
 # ── LOGGING ────────────────────────────────────────────
 logging.basicConfig(
@@ -23,7 +31,7 @@ logging.basicConfig(
 log = logging.getLogger("CEO")
 
 # ── CONFIG ─────────────────────────────────────────────
-GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "")
+GROQ_API_KEY   = "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"
 MAX_ITER       = 5
 CANDIDATES     = 3
 MAX_DELTA      = 30          # max line changes per patch
@@ -41,7 +49,7 @@ ALLOWED        = ("src/", "backend/")
 def get_llm(temp=0.2) -> ChatGroq:
     return ChatGroq(
         api_key=GROQ_API_KEY,
-        model="groq/llama-3.3-70b-versatile",
+        model="llama-3.3-70b-versatile",
         temperature=temp
     )
 
