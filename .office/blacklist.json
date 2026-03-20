@@ -1,1 +1,5 @@
-{}
+{
+  "patterns": [
+    "Past fail: backend/main.py has 0 async flows \u2014 convert routes to async def \u2014 ret"
+  ]
+}
