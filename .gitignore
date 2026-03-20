@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+%TEMP%/
+*.log
+out.txt
+test_screenshot_*.png
+.agent/

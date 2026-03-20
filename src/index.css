@@ -1,0 +1,97 @@
+:root {
+  --bg-main: #0d0d0d;
+  --bg-panel: #111111;
+  --bg-chat: #0a0a0a;
+  --bg-card: #161616;
+  --bg-canvas: #f5e6c8;
+  --border-color: #2a2a2a;
+  --header-border: #222222;
+  
+  --primary: #22c55e;
+  --accent: #a855f7;
+  --writer-color: #f97316; /* orange */
+  
+  --text-main: #ffffff;
+  --text-muted: #888888;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: monospace;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  height: 100vh;
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Base interactive styles from UI/UX Pro Max guidelines */
+button {
+  font-family: monospace;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  filter: brightness(1.1);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Animations for Canvas */
+@keyframes walk-left-right {
+  0% { transform: translate(10%, 20px); }
+  50% { transform: translate(150%, 20px); }
+  100% { transform: translate(10%, 20px); }
+}
+
+@keyframes walk-around-table {
+  0% { transform: translate(300px, 40px); }
+  25% { transform: translate(450px, 40px); }
+  50% { transform: translate(450px, 120px); }
+  75% { transform: translate(300px, 120px); }
+  100% { transform: translate(300px, 40px); }
+}
+
+@keyframes walk-diagonal {
+  0% { transform: translate(600px, 100px); }
+  50% { transform: translate(200px, 150px); }
+  100% { transform: translate(600px, 100px); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-120%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(120%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
