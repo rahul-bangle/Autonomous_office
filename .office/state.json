@@ -1,13 +1,8 @@
 {
   "iter": 5,
   "status": "executing",
-  "ts": "2026-03-21T18:01:29.189985",
+  "ts": "2026-03-21T18:02:24.435914",
   "plan_queue": [
-    {
-      "task": "Create project plan",
-      "agent": "Project Manager",
-      "skill": "00-andruia-consultant"
-    },
     {
       "task": "Conduct security audit",
       "agent": "Security Expert",
@@ -119,6 +114,6 @@
       "skill": "agents-v2-py"
     }
   ],
-  "task": "[00-andruia-consultant] Create project plan",
+  "task": "[007] Conduct security audit",
   "goal": "System is clean. Maintain stability."
 }

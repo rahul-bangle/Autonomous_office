@@ -269,7 +269,7 @@ def build_crew_for_agents(raw_agents, user_message, search_context, groq_key):
 
 # ─── HTTP CHAT (legacy — keep for fallback) ───────────────────────────────────
 @app.post("/api/chat")
-def chat(req: dict):
+async def chat(req: dict):
     groq_key = os.environ.get("GROQ_API_KEY", "").strip()
     if not groq_key:
         raise HTTPException(status_code=500, detail="GROQ_API_KEY not set.")
@@ -282,7 +282,7 @@ def chat(req: dict):
     raw_agents   = req.get("agents", [{"name": "Assistant", "role": "Assistant"}])
 
     use_search     = any(w in user_message.lower() for w in SEARCH_TRIGGERS)
-    search_context = f"\n\nWeb results:\n{search_web(user_message)}" if use_search else ""
+    search_context = f"\n\nWeb results:\n{await search_web(user_message)}" if use_search else ""
 
     crew_agents, crew_tasks, agent_names = build_crew_for_agents(
         raw_agents, user_message, search_context, groq_key
