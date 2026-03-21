@@ -87,7 +87,7 @@ async def load_skills():
                     name_m = re.search(r'name:\s*(.+)', fm)
                     desc_m = re.search(r'description:\s*["\']?([^"\']+)["\']?', fm)
                     if name_m and desc_m:
-                        name = name_m.group(1).strip()
+name = name_m.group(1)
                         AVAILABLE_SKILLS[name] = {
                             "name": name,
                             "description": desc_m.group(1).strip(),
