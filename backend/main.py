@@ -112,76 +112,6 @@ async def search_web(query: str, max_results: int = 3):
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-async def repo_analyzer(file_name: str) -> str:
-    """Reads a file from the local repository for context."""
-    try:
-        if not file_name:
-            return "Error: No file name provided."
-            
-        base_name = os.path.basename(file_name)
-        # Search for file recursively in project
-        target_path = None
-        for root, dirs, files in os.walk(PROJECT_ROOT):
-            if base_name in files:
-                target_path = os.path.join(root, base_name)
-                break
-        
-        if not target_path:
-            return f"File '{file_name}' not found in repository."
-        
-        with open(target_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        return f"\n--- Content of {base_name} ---\n{content}\n--- End of File ---"
-    except Exception as e:
-        return f"Error reading file: {e}"
-
-async def sql_explorer(query: str) -> str:
-    """Executes a SELECT query on Supabase for data insights."""
-    if not query.lower().strip().startswith("select"):
-        return "Error: Only SELECT queries are allowed for safety."
-    try:
-        async with httpx.AsyncClient() as client:
-            headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
-            res = await client.get(f"{SUPABASE_URL}/rest/v1/rpc/execute_sql", headers=headers, params={"query": query})
-            # Note: We likely don't have an 'execute_sql' RPC by default. 
-            # We'll fallback to querying the known tables directly if RPC fails, 
-            # but for now let's use the REST API for vo_agent_memories specifically as a stand-in if it's general.
-            if "vo_agent_memories" in query.lower():
-                res = await client.get(f"{SUPABASE_URL}/rest/v1/vo_agent_memories?select=*", headers=headers)
-            elif "vo_jira_tickets" in query.lower():
-                res = await client.get(f"{SUPABASE_URL}/rest/v1/vo_jira_tickets?select=*", headers=headers)
-            
-            if res.status_code == 200:
-                return json.dumps(res.json()[:10], indent=2) # Limit to 10 rows
-            return f"DB Query failed: {res.text}"
-    except Exception as e:
-        return f"SQL Error: {e}"
-
-async def manage_jira(action: str, title: str = None, desc: str = None, status: str = "OPEN", assignee: str = None) -> str:
-    """Creates or lists Jira tickets in Supabase."""
-    try:
-        async with httpx.AsyncClient() as client:
-            headers = {
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": "application/json",
-                "Prefer": "return=representation"
-            }
-            if action == "create":
-                payload = {"title": title, "description": desc, "status": status, "assignee": assignee}
-                res = await client.post(f"{SUPABASE_URL}/rest/v1/vo_jira_tickets", headers=headers, json=payload)
-                if res.status_code in [201, 200]:
-                    ticket = res.json()[0]
-                    return f"✅ Ticket Created: {ticket['id'][:8]} - {ticket['title']}"
-            else:
-                res = await client.get(f"{SUPABASE_URL}/rest/v1/vo_jira_tickets?select=*&order=created_at.desc&limit=5", headers=headers)
-                if res.status_code == 200:
-                    tickets = res.json()
-                    out = "\n".join([f"- [{t['id'][:8]}] {t['status']}: {t['title']} (Assignee: {t['assignee']})" for t in tickets])
-                    return f"📋 Latest Tickets:\n{out}"
-    except Exception as e:
-        return f"Jira Error: {e}"
-    return "Jira action failed."
 # ─── STRIP REACT FORMAT ───────────────────────────────────────────────────────
 def strip_react(text: str) -> str:
     text = re.sub(r'(THOUGHT|ACTION|RESULT|DECISION)\s*:\s*', '', text, flags=re.IGNORECASE)
@@ -527,13 +457,10 @@ async def websocket_chat(websocket: WebSocket):
             skills_context = ""
             try:
                 skill_det_prompt = f"""Analyze the User Message: "{user_message}"
-Decide if any of these specialized skills are needed to provide a high-quality, data-driven response:
+Decide if specialized skills are needed to provide a high-quality, data-driven response:
 1. WEB_SEARCH: For recent news, documentation, or facts outside training data.
-2. REPO_ANALYZER: For reading local project code (if files like .jsx, .py, .css are mentioned).
-3. SQL_EXPLORER: For querying agent memories or historical data in Supabase.
-4. JIRA_MANAGER: For listing, creating, or check status of project tickets.
 
-Return a JSON object: {{"skills": ["SKILL_NAME"], "file_name": "...", "query": "...", "action": "create|list", "title": "...", "description": "..."}}
+Return a JSON object: {{"skills": ["SKILL_NAME"], "query": "..."}}
 If no skills are needed, return {{"skills": []}}."""
                 
                 skill_client = AsyncGroq(api_key=groq_key)
@@ -551,20 +478,6 @@ If no skills are needed, return {{"skills": []}}."""
                     if s == "WEB_SEARCH":
                         res = await search_web(user_message)
                         skills_context += f"\n[Skill Output: Web Search]\n{res}\n"
-                    elif s == "REPO_ANALYZER":
-                        fname = skill_decision.get("file_name")
-                        if fname:
-                            res = await repo_analyzer(fname)
-                            skills_context += f"\n[Skill Output: Repo Analyzer - {fname}]\n{res}\n"
-                    elif s == "SQL_EXPLORER":
-                        sql_q = skill_decision.get("query")
-                        if sql_q:
-                            res = await sql_explorer(sql_q)
-                            skills_context += f"\n[Skill Output: SQL Explorer]\n{res}\n"
-                    elif s == "JIRA_MANAGER":
-                        j_act = skill_decision.get("action", "list")
-                        res = await manage_jira(j_act, skill_decision.get("title"), skill_decision.get("description"))
-                        skills_context += f"\n[Skill Output: Jira Manager]\n{res}\n"
             except Exception as skill_err:
                 print(f"Skill error: {skill_err}")
 
