@@ -1,53 +1,51 @@
-# Cross-Perspective Code Review — Core Infrastructure
+# Cross-Perspective Code Review — CEO Phase 1.1 Upgrade
 
-This review covers `ceo.py` (v2.0) and `supervisor.py` (watchdog). Since external AI CLIs were unavailable, this assessment combines Architectural, Security, and Reliability perspectives from a Senior Engineering standpoint.
+This review covers the current `ceo.py` (v5-FINAL) and the proposed **Implementation Plan** for the `task | agent | skill` format upgrade.
 
 ---
 
 ## 🏛️ Architectural Review (Systems Design)
-**Assessment**: **HIGH QUALITY**
+**Assessment**: **STRATEGIC IMPROVEMENT**
 
 ### Strengths
-- **Decoupled Monitoring**: The `Supervisor` class effectively separates health monitoring from the standard execution loop, ensuring the backend stays alive without manual intervention.
-- **Granular Planning**: The Shift to `task | agent | skill` format in `ceo.py` significantly improves the granular utility of specialized agent skills.
-- **Native Integration**: Use of PowerShell for Windows toasts is a clever way to provide OS-level feedback without adding heavyweight Python dependencies like `win10toast`.
+- **Shift to Proactive Planning**: Moving from a per-issue priority queue to a multi-step `generate_plan` phase allows for logical dependency management (e.g., refactoring a base class before fixing children).
+- **Skill-Based Orchestration**: The `task | agent | skill` triplet allows the CEO to delegate tasks to workers with specific toolset contexts, maximizing efficiency.
 
 ### Concerns
-- **Brittle Parsing** (MEDIUM): `parse_plan` in `ceo.py` relies on exact `- <task> | <agent> | <skill>` formatting. LLM hallucinations in formatting could stall the pipeline.
-- **Hardcoded Endpoints** (LOW): `HEALTH_URL` and `PROJECT_ROOT` assumptions are solid but could be moved to a `config.py` for better environment portability.
+- **Planning Latency** (MEDIUM): Adding a full `generate_plan` call on every iteration might slow down the loop. 
+    - *Suggestion*: Only re-plan if new issues are detected after a successful fix, otherwise follow the existing plan.
+- **Parsing Robustness** (HIGH): As noted in legacy reviews, `parse_plan` is a single point of failure.
+    - *Suggestion*: Use a regex-based parser with a "pydantic-like" fallback to handle minor LLM formatting errors.
 
 ---
 
 ## 🔒 Security Review (Vulnerability Analysis)
-**Assessment**: **LOW RISK**
+**Assessment**: **CONTROLLED RISK**
 
 ### Strengths
-- **No-Secrets Policy**: Both files correctly use `os.environ` and `.env` loading, avoiding hardcoded API keys.
-- **Dependency Minimization**: `supervisor.py` uses `urllib` instead of `requests`, reducing the attack surface of third-party package vulnerabilities.
+- **Skill Sandboxing**: Skills are sourced from a local `AG_Skills/skills` directory, ensuring only vetted logic is invoked.
+- **Environment Isolation**: The current `ceo.py` correctly uses environment variables for the Groq API key.
 
 ### Concerns
-- **PowerShell Injection** (LOW): In `_send_native_toast`, the `$title` and `$message` are directly interpolated into a PowerShell script. 
-    - *Risk*: If a model generates a string with `"; Stop-Process -Name lsass; "`, it could potentially cause issues.
-    - *Suggestion*: Sanitize or escape double quotes in toast messages before passing to PowerShell.
+- **Agent Context Shifting** (LOW): If a task specifies an "Agent" that has more permissions than the CEO intended, it could lead to unintended modifications.
+    - *Suggestion*: Validate that the "Agent" column matches a known set of agent types (e.g., Architect, Developer, Security).
 
 ---
 
 ## 📉 Reliability Review (SRE / Performance)
-**Assessment**: **EXCELLENT**
+**Assessment**: **RELIABLE**
 
 ### Strengths
-- **Model Fallback**: The implementation of `FALLBACK_MODEL` in `ceo.py` is a masterclass in resilience—ensuring the "brain" doesn't die just because a specific 70B model hits a rate limit.
-- **Exponential Backoff**: `supervisor.py` correctly implements backoff for Groq probes, preventing "API spam" during network instability.
-- **Signal Handling**: Robust use of `SIGINT`/`SIGTERM` ensures clean shutdowns and user notification.
+- **Granular Recovery**: If a specific task in a plan fails, the `State` management allows for targeted retries or skipping without losing the entire plan context.
 
 ### Concerns
-- **NoneType Guarding**: While improved, deep nested checks for `res.choices[0]` still carry some risk if an API returns an unexpected error structure without throwing an exception.
+- **Skill Drift** (MEDIUM): If a skill filename is specified in the plan but the file is missing from the disk, the worker will crash.
+    - *Suggestion*: Implement a `check_skill_exists()` guard before launching a worker task.
 
 ---
 
 ## 💡 Consensus Suggestions
-1. **Schema Check**: Implement a more robust regex or schema validator for CEO plans to handle minor LLM formatting variances.
-2. **Toast Sanitization**: Add `.replace('"', "'")` to any string passed into the native toast PowerShell commands.
-3. **Health Portability**: Allow `HEALTH_PORT` to be an environment variable to support different deployment configurations.
+1. **Dynamic Skill Injection**: During the `generate_plan` prompt, inject the actual list of top available skill names from `AG_Skills` to prevent hallucinations.
+2. **Stateful Planning**: Store the `current_plan` in `.office/state.json` to allow session resumption if the CEO script is restarted.
 
-**Overall Status**: ✅ **READY FOR PRODUCTION**
+**Overall Status**: 🚀 **READY FOR IMPLEMENTATION**

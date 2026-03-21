@@ -16,13 +16,14 @@ import time
 import subprocess
 import logging
 import urllib.request
+from dotenv import load_dotenv
 from datetime import datetime
 from pathlib import Path
 import socket
 
 os.environ["OPENAI_API_KEY"] = "NA"
 
-from langchain_groq import ChatGroq
+from groq import Groq
 
 # ── LOGGING ────────────────────────────────────────────
 logging.basicConfig(
@@ -33,7 +34,9 @@ logging.basicConfig(
 log = logging.getLogger("CEO")
 
 # ── CONFIG ─────────────────────────────────────────────
+load_dotenv() # Load from .env
 GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
+GITHUB_TOKEN   = os.environ.get("GITHUB_TOKEN")
 MAX_ITER       = 5
 CANDIDATES     = 3
 BOOT_WAIT      = 5
@@ -42,6 +45,7 @@ MEMORY_FILE    = Path(".office/memory.json")
 BLACKLIST_FILE = Path(".office/blacklist.json")
 BACKEND_LOG    = Path("backend/server.log")
 BACKEND_MAIN   = Path("backend/main.py")
+AG_SKILLS_JSON = Path("../AG_Skills/skills_index.json") # Relative to Virtual_office
 ALLOWED        = ("src/", "backend/")
 
 
@@ -72,12 +76,37 @@ def ceo_cycle_end(iteration, result, score):
         print(f"Failed to log to MASTER_CONTEXT: {e}")
 
 # ── LLM ───────────────────────────────────────────────
-def get_llm(temp=0.2) -> ChatGroq:
-    return ChatGroq(
-        api_key=GROQ_API_KEY,
-        model="llama-3.3-70b-versatile",
-        temperature=temp
-    )
+# Global Groq Client
+client = Groq(api_key=GROQ_API_KEY)
+
+def get_llm_response(prompt: str, temp=0.2) -> str:
+    """Native Groq SDK call for reliability and speed."""
+    try:
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=temp,
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception as e:
+        log.error(f"Groq API Error: {e}")
+        return ""
+
+def load_ag_skills() -> str:
+    """Read names and descriptions from AG_Skills to prevent hallucinations."""
+    if not AG_SKILLS_JSON.exists():
+        log.warning(f"AG_Skills not found at {AG_SKILLS_JSON}")
+        return "Generic Python Fixer | AI Agent | default-skill"
+    try:
+        data = json.loads(AG_SKILLS_JSON.read_text(encoding="utf-8"))
+        # Get top 30 most relevant looking skills for the planner
+        skills_summary = ""
+        for s in data[:30]:
+            skills_summary += f"- {s['name']}: {s['description'][:100]}\n"
+        return skills_summary
+    except Exception as e:
+        log.error(f"Failed to load AG_Skills: {e}")
+        return "Generic Python Fixer | AI Agent | default-skill"
 
 
 # ══════════════════════════════════════════════════════
@@ -294,7 +323,7 @@ CLASS_HINTS = {
     "general": "Minimal correct change.",
 }
 
-def build_prompt(task: str, cls: str, attempt: int) -> str:
+def build_prompt(task: str, cls: str, attempt: int, skill: str = "default-skill") -> str:
     style = ["minimal", "defensive", "refactored"][attempt % 3]
     hint  = CLASS_HINTS.get(cls, CLASS_HINTS["general"])
 
@@ -306,6 +335,7 @@ def build_prompt(task: str, cls: str, attempt: int) -> str:
 
     return f"""You are a senior developer. Style: {style}.
 SYSTEM GOAL: {GOAL}
+ASSIGNED SKILL: {skill}
 
 ISSUE TYPE: {cls}
 HINT: {hint}
@@ -327,6 +357,60 @@ RULES:
 - "- " line must EXACTLY match a line in the file shown
 - If nothing to change: NO_PATCH_NEEDED
 """
+
+def generate_plan(issues: list[dict], skills_list: str) -> list[dict]:
+    """Create a multi-step plan in task | agent | skill format."""
+    log.info("[PLANNER] Generating multi-step execution plan...")
+    issues_text = "\n".join([f"- [{i['source']}] {i['description']}" for i in issues[:10]])
+    
+    prompt = f"""You are the CEO Architect. Decompose these issues into a logical multi-step plan.
+Each step must follow this format: task | agent | skill
+
+AVAILABLE SKILLS:
+{skills_list}
+
+DETECTED ISSUES:
+{issues_text}
+
+PLANNING RULES:
+1. Group related issues into single tasks where possible.
+2. Order tasks by logical dependency (e.g. fix syntax first).
+3. Every task MUST use a skill from the AVAILABLE SKILLS list.
+4. If no specific skill matches, use 'default-skill'.
+
+OUTPUT FORMAT:
+task | agent | skill
+task | agent | skill
+
+Example:
+Fix health endpoint syntax | Developer | python-expert
+Add missing login route | Backend Architect | flask-patterns
+"""
+    try:
+        res = get_llm_response(prompt, 0.1)
+        plan = []
+        for line in res.splitlines():
+            if "|" in line:
+                parts = [p.strip() for p in line.split("|")]
+                if len(parts) == 3:
+                    plan.append({"task": parts[0], "agent": parts[1], "skill": parts[2]})
+        
+        log.info(f"[PLANNER] Created {len(plan)} tasks")
+        for i, t in enumerate(plan):
+            log.info(f"  {i+1}. [{t['skill']}] {t['task']}")
+            
+        # Log to MASTER_CONTEXT
+        mc_path = Path("MASTER_CONTEXT.md")
+        if mc_path.exists():
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+            log_entry = f"\n[ {timestamp} ] CEO_PLAN_GENERATED: {len(plan)} tasks queued.\n"
+            with open(mc_path, "a", encoding="utf-8") as f:
+                f.write(log_entry)
+
+        return plan
+    except Exception as e:
+        log.error(f"[PLANNER] Failed to generate plan: {e}")
+        return []
 
 
 # ══════════════════════════════════════════════════════
@@ -554,9 +638,18 @@ def save_memory(issue: str, patch_type: str, score: float, result: str):
 # ══════════════════════════════════════════════════════
 def save_state(data: dict):
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps(
-        {**data, "ts": datetime.now().isoformat()}, indent=2
-    ))
+    current = load_state()
+    current.update(data)
+    current["ts"] = datetime.now().isoformat()
+    STATE_FILE.write_text(json.dumps(current, indent=2))
+
+def load_state() -> dict:
+    if not STATE_FILE.exists():
+        return {}
+    try:
+        return json.loads(STATE_FILE.read_text())
+    except:
+        return {}
 
 
 # ══════════════════════════════════════════════════════
@@ -573,64 +666,56 @@ def main():
         return
 
     blacklist    = load_blacklist()
-    consec_fails = 0
     last_tasks   = []
 
-    for iteration in range(1, MAX_ITER + 1):
+    # ── SESSION RESUMPTION ──────────────────────────────
+    state = load_state()
+    plan_queue = state.get("plan_queue", [])
+    iteration = state.get("iter", 1)
+
+    if plan_queue:
+        log.info(f"[CEO] Resuming session from state. {len(plan_queue)} tasks pending.")
+
+    while iteration <= MAX_ITER:
         log.info(f"\n{'─'*58}")
         log.info(f"  ITERATION {iteration}/{MAX_ITER}")
         log.info(f"{'─'*58}")
 
-        save_state({"iter": iteration, "status": "scanning"})
-
-        # ── SELF SCAN ───────────────────────────────────
-        issues = gather_all_issues()
-
-        if not issues:
-            log.info("[CEO] No issues. System clean! Sleeping 30s...")
-            time.sleep(30)
-            continue
-
-        # ── PRIORITIZE + QUEUE ──────────────────────────
-        ranked = prioritize(issues)
-        if not ranked:
-            log.info("[CEO] No prioritized issues. System clean! Sleeping 30s...")
-            time.sleep(30)
-            continue
-        
-        task_queue = []
-        forced = force_goal_issue(ranked)
-        if forced:
-            task_queue.append(forced)
-            for r in ranked:
-                if r != forced and len(task_queue) < 3:
-                    task_queue.append(r)
-        else:
-            task_queue = ranked[:3]
-
-        for top in task_queue:
-            task = f"[{top['source']}|{top['pri']}] {top['description']}"
-
-            if task in last_tasks:
-                log.warning(f"[CEO] Skipping repeated task: {task[:50]}")
+        # ── PLANNER ─────────────────────────────────────
+        if not plan_queue:
+            save_state({"iter": iteration, "status": "scanning"})
+            issues = gather_all_issues()
+            
+            if not issues:
+                log.info("[CEO] No issues found. System clean! Sleeping 30s...")
+                time.sleep(30)
                 continue
-            
-            last_tasks.append(task)
-            last_tasks = last_tasks[-10:]  # Keep a bit more history
-            
-            cls = classify(top["description"])
-            log.info(f"\n[CEO] >>> ACTIVE TASK: {task[:90]}")
-            log.info(f"[CEO] Role: {cls}")
 
-            ceo_cycle_start(iteration, task)
+            available_skills = load_ag_skills()
+            plan_queue = generate_plan(issues, available_skills)
+            save_state({"plan_queue": plan_queue})
 
+            if not plan_queue:
+                log.warning("[CEO] Planner returned empty plan. Retrying in 30s...")
+                time.sleep(30)
+                continue
+
+        # ── EXECUTION QUEUE ─────────────────────────────
+        while plan_queue:
+            top = plan_queue[0] # Peek
+            task_desc = f"[{top['skill']}] {top['task']}"
+            
+            log.info(f"\n[CEO] >>> ACTIVE TASK: {task_desc[:90]}")
+            save_state({"status": "executing", "task": task_desc[:80]})
+            
+            ceo_cycle_start(iteration, top["task"])
+
+            # ── CLASSIFY ────────────────────────────────────
+            cls = classify(top["task"])
+            
             # ── BASELINE ────────────────────────────────────
             log.info("[CEO] Measuring baseline...")
             baseline_r = run_tests()
-            if baseline_r["health"] and baseline_r["valid_json"] and "/health" not in task:
-                log.info("[CEO] GOAL ACHIEVED — system stable. (Skipping non-essential task)")
-                continue # Try next task in queue or next iteration
-            
             baseline_s = compute_score(baseline_r)
             log.info(f"[CEO] Baseline Score: {baseline_s}")
 
@@ -638,19 +723,18 @@ def main():
             git_snapshot(f"v5-iter{iteration}-task-{cls}")
 
             # ── GENERATE 3 CANDIDATES ───────────────────────
-            save_state({"iter": iteration, "status": "generating", "task": task[:80]})
             best_patch = None
             best_score = baseline_s
-            best_delta = 0
 
             for c in range(CANDIDATES):
                 temp = [0.2, 0.4, 0.6][c]
                 log.info(f"[DARWIN] Candidate {c+1}/{CANDIDATES} (temp={temp})...")
 
                 try:
-                    patch = get_llm(temp).invoke(
-                        build_prompt(task, cls, c)
-                    ).content.strip()
+                    patch = get_llm_response(
+                        build_prompt(top["task"], cls, c, top["skill"]),
+                        temp=temp
+                    )
                 except Exception as e:
                     log.warning(f"[DARWIN] LLM failed: {e}")
                     continue
@@ -671,7 +755,6 @@ def main():
                 if cand_s > best_score:
                     best_score = cand_s
                     best_patch = patch
-                    best_delta = delta
 
             # ── RESET + SELECT ──────────────────────────────
             git_rollback()
@@ -683,32 +766,31 @@ def main():
                 if regression_check(baseline_r, final_r):
                     git_commit_winner(iteration, best_score)
                     log.info(f"[CEO] ✅ FIXED: {baseline_s} → {best_score}")
-                    save_memory(top["description"], cls, best_score, "success")
-                    consec_fails = 0
+                    save_memory(top["task"], cls, best_score, "success")
                     ceo_cycle_end(iteration, "success", best_score)
                 else:
                     log.error("[CEO] Regression → rollback")
                     git_rollback()
-                    blacklist_add(top["description"][:80])
-                    save_memory(top["description"], cls, best_score, "regression")
-                    consec_fails += 1
+                    save_memory(top["task"], cls, best_score, "regression")
                     ceo_cycle_end(iteration, "regression", best_score)
             else:
                 log.warning(f"[CEO] No improvement for {cls}")
-                save_memory(top["description"], cls, baseline_s, "no_improvement")
+                save_memory(top["task"], cls, baseline_s, "no_improvement")
                 ceo_cycle_end(iteration, "no_improvement", baseline_s)
-                # Don't increment consec_fails here necessarily, might just be a hard task.
-                # But we'll follow previous logic if desired.
-        
-        if baseline_r["health"] and baseline_r["valid_json"]:
+
+            # ── POP FROM QUEUE ──────────────────────────────
+            plan_queue.pop(0)
+            save_state({"plan_queue": plan_queue})
+
+        # Check final goal
+        final_r = run_tests()
+        if final_r["health"] and final_r["valid_json"]:
             log.info("[CEO] FULL GOAL REACHED — Stopping.")
             break
 
-        if consec_fails >= 5: # Increased for queue
-            log.error("[CEO] Too many failures. Halting.")
-            break
-
-        log.info(f"[CEO] Iteration {iteration} complete. Sleeping 10s...")
+        iteration += 1
+        save_state({"iter": iteration, "plan_queue": []})
+        log.info(f"[CEO] Iteration complete. Sleeping 10s...")
         time.sleep(10)
 
     log.info("\n[CEO] All iterations complete.")
