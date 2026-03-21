@@ -17,7 +17,7 @@ Rahul Bangle (@rahul-bangle)
 - **Frontend**: Stable. Autonomous simulation, A* pathfinding, and dynamic layout editor operational.
 - **Backend**: Stable. FastAPI + CrewAI + Llama 3.3 integration live.
 - **Security**: ✅ Remediated. All hardcoded secrets masked.
-- **Overall**: STABLE & FEATURE-COMPLETE (v1.8).
+- **Overall**: STABLE & FEATURE-COMPLETE (v1.9) - CEO v6 Autonomous.
 
 ## 🔄 SCALABILITY STRATEGY (Auto-Rotation)
 - **Threshold**: When log sections (Terminal, Change, Conversation) exceed 2000 lines.
@@ -60,7 +60,7 @@ Rahul Bangle (@rahul-bangle)
 ## ⚡ HOW TO RUN RIGHT NOW
 - **Backend**: `py -3.11 backend/main.py` (Runs on Port 8000)
 - **Frontend**: `npm run dev` (Runs on Port 5173)
-- **CEO Agent**: `py -3.11 ceo.py` (Maintains system stability)
+- **CEO Agent**: `py -3.11 ceo.py` (Autonomous: Heartbeat, Health, Auto-Restart)
 
 ---
 
@@ -129,8 +129,13 @@ Rahul Bangle (@rahul-bangle)
 [2026-03-20 23:52] USER: proceed with the implementationa adn push to ggit @implementation_plan.md.resolved
 [2026-03-21 00:00] AGENT: Completed security remediation, masked all secrets, deleted backup files, and synchronized with GitHub.
 [2026-03-21 00:01] USER: updarte masterlog and push that to git ....
-[2026-03-21 06:16] USER: hey update master context klog and puc the tflies t o fgit hub......
-[2026-03-21 06:17] AGENT: Proceeding to update MASTER_CONTEXT.md and pushing to GitHub.
+[2026-03-21 07:47] USER: ceo.py mein 2 jagah toast add karo: 1. Startup pe — "✅ Office OS CEO Started" 2. Crash/exit pe — "🚨 Office OS CEO Stopped"
+[2026-03-21 07:48] AGENT: Researched toast implementation. Proposed web-based toasts via backend bridge.
+[2026-03-21 07:51] USER: hey i need Windows Native Toast ....plan accoridnly
+[2026-03-21 07:52] AGENT: Updated plan to use Windows Native Toasts via PowerShell for zero-dependency compatibility.
+[2026-03-21 07:53] USER: proceed
+[2026-03-21 07:56] USER: update mater context till niow and push ggit
+[2026-03-21 07:57] AGENT: Implementing native toasts in `ceo.py` and updating master context.
 
 ## 📅 CHANGE LOG
 [2026-03-20 22:56] FILE: [NEW] `MASTER_CONTEXT.md`
@@ -211,6 +216,12 @@ CHANGED: Added conversation log and change log entries for the current session.
 REASON: User requested update and push.
 RESULT: ✅ worked
 
+[2026-03-21 07:57] FILE: `ceo.py`
+CONTEXT: Added Windows Native Toast notifications.
+CHANGED: Implemented `_send_native_toast` using PowerShell. Added startup/shutdown hooks and signal handlers.
+REASON: User request for OS-level native alerts.
+RESULT: ✅ worked
+
 ## 🐛 BUG LOG
 [2026-03-20 22:56] BUG: Initializing log system.
 STATUS: ✅ fixed (System online)
@@ -225,6 +236,282 @@ STATUS: ✅ complete
 [2026-03-21 06:19] CMD: `git add . && git commit -m "docs: update MASTER_CONTEXT.md log and push files" && git push`
 CONTEXT: Syncing master log and files to GitHub.
 PURPOSE: Update remote repository with latest session history and changes.
+STATUS: ✅ complete
+
+[2026-03-21 06:40:16] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 1.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=fail (connection_error=<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>); restart=failed (reason=health_check_failed; connection_error=<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>); groq=skipped (GROQ_API_KEY missing).
+STATUS: ⚠ degraded
+
+[2026-03-21 06:40:44] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 1.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=failed (reason=health_check_failed; connection_error=<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>); groq=skipped (GROQ_API_KEY missing).
+STATUS: ✅ complete
+
+[2026-03-21 06:41:04] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 1.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=skipped (GROQ_API_KEY missing).
+STATUS: ✅ complete
+
+[2026-03-21 06:42:16] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 1.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=skipped (GROQ_API_KEY missing).
+STATUS: ✅ complete
+
+[2026-03-21 06:42:46] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 2.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=skipped (GROQ_API_KEY missing).
+STATUS: ✅ complete
+
+[2026-03-21 06:43:17] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 3.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=skipped (GROQ_API_KEY missing).
+STATUS: ✅ complete
+
+[2026-03-21 06:43:47] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 4.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=skipped (GROQ_API_KEY missing).
+STATUS: ✅ complete
+
+[2026-03-21 06:44:17] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 5.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=skipped (GROQ_API_KEY missing).
+STATUS: ✅ complete
+
+[2026-03-21 06:44:34] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 1.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:44:47] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 6.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=skipped (GROQ_API_KEY missing).
+STATUS: ✅ complete
+
+[2026-03-21 06:45:09] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 1.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:45:41] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 2.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:46:13] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 3.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:46:44] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 4.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:47:15] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 5.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:47:46] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 6.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:48:17] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 7.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:48:49] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 8.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:49:20] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 9.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:49:52] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 10.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:50:23] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 11.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:50:54] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 12.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:51:25] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 13.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:51:55] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 14.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 06:52:26] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 15.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:44:11] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 1.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=fail (connection_error=<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>); restart=failed (reason=health_check_failed; connection_error=<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>); groq=ok (probe_success).
+STATUS: ⚠ degraded
+
+[2026-03-21 07:44:54] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 2.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:45:24] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 3.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:45:55] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 4.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:46:25] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 5.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:46:56] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 6.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:47:32] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 7.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:48:18] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 8.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:48:50] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 9.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:49:21] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 10.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:49:52] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 11.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:50:24] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 12.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:50:54] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 13.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:51:25] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 14.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:51:56] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 15.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:52:27] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 16.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:52:58] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 17.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:53:47] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 1.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=fail (connection_error=timed out); restart=failed (reason=health_check_failed; connection_error=timed out); groq=ok (probe_success).
+STATUS: ⚠ degraded
+
+[2026-03-21 07:53:42] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 18.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=fail (connection_error=timed out); restart=failed (reason=health_check_failed; connection_error=timed out); groq=ok (probe_success).
+STATUS: ⚠ degraded
+
+[2026-03-21 07:55:33] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 19.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
+STATUS: ✅ complete
+
+[2026-03-21 07:56:05] CMD: `py -3.11 ceo.py`
+CONTEXT: CEO autonomous loop cycle 20.
+PURPOSE: Heartbeat+Health+Restart+Groq-backoff supervision.
+OUTPUT: health=ok (http=200 json_keys=[status,version]); restart=not_needed (backend healthy); groq=ok (probe_success).
 STATUS: ✅ complete
 
 ## 🔌 CONNECTION LOG
