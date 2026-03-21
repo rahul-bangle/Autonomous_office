@@ -62,6 +62,13 @@
       "score": 0.55,
       "result": "no_improvement",
       "ts": "2026-03-20T15:39:08.664294"
+    },
+    {
+      "issue": "Convert backend/main.py to async flows",
+      "patch_type": "async",
+      "score": 0.1,
+      "result": "no_improvement",
+      "ts": "2026-03-21T17:50:30.565946"
     }
   ],
   "wins": [
