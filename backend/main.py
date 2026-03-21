@@ -87,7 +87,7 @@ async def load_skills():
                     name_m = re.search(r'name:\s*(.+)', fm)
                     desc_m = re.search(r'description:\s*["\']?([^"\']+)["\']?', fm)
                     if name_m and desc_m:
-name = name_m.group(1)
+                        name = name_m.group(1)
                         AVAILABLE_SKILLS[name] = {
                             "name": name,
                             "description": desc_m.group(1).strip(),
@@ -144,12 +144,14 @@ app.add_middleware(
 
 # ─── SKILLS ENDPOINTS ─────────────────────────────────────────────────────────
 @app.get("/api/skills")
-def get_skills():
+async def get_skills():
+    if not AVAILABLE_SKILLS:
+        await load_skills()
     return {"skills": [{"id": v["name"], "name": v["name"], "description": v["description"]} for v in AVAILABLE_SKILLS.values()]}
 
 @app.post("/api/skills/reload")
-def reload_skills_endpoint():
-    load_skills()
+async def reload_skills_endpoint():
+    await load_skills()
     return {"reloaded": len(AVAILABLE_SKILLS), "skills": list(AVAILABLE_SKILLS.keys())}
 
 # ─── AGENT STATE ──────────────────────────────────────────────────────────────
