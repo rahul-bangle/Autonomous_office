@@ -1,13 +1,8 @@
 {
   "iter": 5,
   "status": "executing",
-  "ts": "2026-03-21T17:56:32.272227",
+  "ts": "2026-03-21T17:57:31.180704",
   "plan_queue": [
-    {
-      "task": "Fix syntax errors in backend/main.py",
-      "agent": "Backend Architect",
-      "skill": "00-andruia-consultant"
-    },
     {
       "task": "Resolve import issues in backend/main.py",
       "agent": "Backend Architect",
@@ -24,6 +19,6 @@
       "skill": "agent-orchestrator"
     }
   ],
-  "task": "[00-andruia-consultant] Fix syntax errors in backend/main.py",
+  "task": "[00-andruia-consultant] Resolve import issues in backend/main.py",
   "goal": "backend\\main.py: SyntaxError line 90 \u2014 expected an indented block after 'if' statement on line 89"
 }
