@@ -252,6 +252,11 @@ $n.ShowBalloonTip(5000, $title, $message, [System.Windows.Forms.ToolTipIcon]::In
         groq_status: str,
         groq_detail: str,
     ) -> None:
+        """Logs the cycle to MASTER_CONTEXT.md if there's an issue."""
+        should_log = (not health_ok) or (restart_status != "not_needed") or (groq_status == "error")
+        if not should_log:
+            return
+
         entry = (
             f"[{started_at.strftime('%Y-%m-%d %H:%M:%S')}] CMD: `py -3.11 ceo.py`\n"
             f"CONTEXT: CEO autonomous loop cycle {self.cycle}.\n"
