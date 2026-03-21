@@ -323,7 +323,7 @@ CLASS_HINTS = {
     "general": "Minimal correct change.",
 }
 
-def build_prompt(task: str, cls: str, attempt: int, skill: str = "default-skill") -> str:
+def build_prompt(task: str, cls: str, attempt: int, skill: str = "default-skill", goal: str = "Unknown") -> str:
     style = ["minimal", "defensive", "refactored"][attempt % 3]
     hint  = CLASS_HINTS.get(cls, CLASS_HINTS["general"])
 
@@ -334,7 +334,7 @@ def build_prompt(task: str, cls: str, attempt: int, skill: str = "default-skill"
             file_context += f"\n\nCURRENT FILE ({p}):\n```\n{content[:4000]}\n```"
 
     return f"""You are a senior developer. Style: {style}.
-SYSTEM GOAL: {GOAL}
+SYSTEM GOAL: {goal}
 ASSIGNED SKILL: {skill}
 
 ISSUE TYPE: {cls}
@@ -734,7 +734,7 @@ def main():
 
                 try:
                     patch = get_llm_response(
-                        build_prompt(top["task"], cls, c, top["skill"]),
+                        build_prompt(top["task"], cls, c, top["skill"], current_goal),
                         temp=temp
                     )
                 except Exception as e:

@@ -83,6 +83,13 @@
       "score": 0.1,
       "result": "no_improvement",
       "ts": "2026-03-21T17:52:34.893924"
+    },
+    {
+      "issue": "Optimize async flows for better performance",
+      "patch_type": "async",
+      "score": 0.0,
+      "result": "no_improvement",
+      "ts": "2026-03-21T17:54:05.269519"
     }
   ],
   "wins": [
