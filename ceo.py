@@ -302,17 +302,17 @@ def prioritize(issues: list[dict]) -> list[dict]:
         log.info(f"[PRI] Top → [{ranked[0]['pri']}] {ranked[0]['description'][:70]}")
     return ranked
 
-def force_goal_issue(issues: list[dict]) -> dict:
-    for i in issues:
-        if "/health" in i["description"]:
-            return i
-    return None
+def generate_goal(issues: list[dict]) -> str:
+    """Derive the current system goal from the top prioritized issue."""
+    if not issues:
+        return "System is clean. Maintain stability."
+    top = issues[0]
+    return top.get("description", "Improve system stability.")
 
 
 # ══════════════════════════════════════════════════════
 # PROMPT — actual file content inject
 # ══════════════════════════════════════════════════════
-GOAL = "health endpoint must return 200 with valid JSON"
 
 CLASS_HINTS = {
     "syntax":  "Fix syntax only. Zero logic changes.",
@@ -692,8 +692,10 @@ def main():
                 continue
 
             available_skills = load_ag_skills()
-            plan_queue = generate_plan(issues, available_skills)
-            save_state({"plan_queue": plan_queue})
+            ranked = prioritize(issues)
+            current_goal = generate_goal(ranked)
+            plan_queue = generate_plan(ranked, available_skills)
+            save_state({"plan_queue": plan_queue, "goal": current_goal})
 
             if not plan_queue:
                 log.warning("[CEO] Planner returned empty plan. Retrying in 30s...")
