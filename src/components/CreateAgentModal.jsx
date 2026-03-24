@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
-function CreateAgentModal({ isOpen, onClose, onAgentCreate, availableSkills = [] }) {
+const DEFAULT_MODEL = 'groq/llama-3.3-70b-versatile';
+
+function CreateAgentModal({ isOpen, onClose, onAgentCreate, availableSkills = [], initialAgent = null }) {
   const [name, setName] = useState('');
   const [role, setRole] = useState('');
   const [goal, setGoal] = useState('');
@@ -10,12 +12,40 @@ function CreateAgentModal({ isOpen, onClose, onAgentCreate, availableSkills = []
   const [tools, setTools] = useState([]);
   const [skillInput, setSkillInput] = useState('');
   const [toolInput, setToolInput] = useState('');
-  const [avatarColor, setAvatarColor] = useState('#3b82f6'); // Default blue
+  const [avatarColor, setAvatarColor] = useState('#3b82f6');
   const [priority, setPriority] = useState('Medium');
-
-  if (!isOpen) return null;
+  const [provider, setProvider] = useState('groq');
+  const [model, setModel] = useState(DEFAULT_MODEL);
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [isActive, setIsActive] = useState(true);
 
   const presetColors = ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
+  const skillCatalog = availableSkills.map((skill) => (typeof skill === 'string'
+    ? { id: skill, name: skill, description: '' }
+    : skill
+  ));
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setName(initialAgent?.name || '');
+    setRole(initialAgent?.role || '');
+    setGoal(initialAgent?.goal || initialAgent?.desc || '');
+    setBackstory(initialAgent?.backstory || '');
+    setPersonality(initialAgent?.personality || 'Formal');
+    setSkills(initialAgent?.skills || []);
+    setTools(initialAgent?.tools || []);
+    setSkillInput('');
+    setToolInput('');
+    setAvatarColor(initialAgent?.color || '#3b82f6');
+    setPriority(initialAgent?.priority || 'Medium');
+    setProvider(initialAgent?.provider || 'groq');
+    setModel(initialAgent?.model || DEFAULT_MODEL);
+    setSystemPrompt(initialAgent?.system_prompt || '');
+    setIsActive(initialAgent?.is_active !== false);
+  }, [initialAgent, isOpen]);
+
+  if (!isOpen) return null;
 
   const handleAddSkill = (e) => {
     if (e.key === 'Enter' && skillInput.trim()) {
@@ -43,9 +73,10 @@ function CreateAgentModal({ isOpen, onClose, onAgentCreate, availableSkills = []
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!name || !role) return; // Basic validation
+    if (!name || !role) return;
     
     onAgentCreate({
+      id: initialAgent?.id,
       name,
       role,
       goal,
@@ -54,13 +85,29 @@ function CreateAgentModal({ isOpen, onClose, onAgentCreate, availableSkills = []
       skills,
       tools,
       avatarColor,
-      priority
+      priority,
+      provider,
+      model,
+      systemPrompt,
+      isActive,
+      is_seeded: initialAgent?.is_seeded || false,
     });
     
-    // Reset form after submit
-    setName(''); setRole(''); setGoal(''); setBackstory('');
-    setPersonality('Formal'); setSkills([]); setTools([]); 
-    setSkillInput(''); setToolInput(''); setAvatarColor('#3b82f6'); setPriority('Medium');
+    setName('');
+    setRole('');
+    setGoal('');
+    setBackstory('');
+    setPersonality('Formal');
+    setSkills([]);
+    setTools([]);
+    setSkillInput('');
+    setToolInput('');
+    setAvatarColor('#3b82f6');
+    setPriority('Medium');
+    setProvider('groq');
+    setModel(DEFAULT_MODEL);
+    setSystemPrompt('');
+    setIsActive(true);
   };
 
   return (
@@ -88,7 +135,9 @@ function CreateAgentModal({ isOpen, onClose, onAgentCreate, availableSkills = []
       >
         {/* Header */}
         <div style={{ padding: '20px 24px', borderBottom: '1px solid #334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '18px', color: '#f8fafc', fontWeight: 'bold' }}>Create New Agent</h2>
+          <h2 style={{ margin: 0, fontSize: '18px', color: '#f8fafc', fontWeight: 'bold' }}>
+            {initialAgent ? 'Edit Agent' : 'Create PM Agent'}
+          </h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '20px', cursor: 'pointer' }}>&times;</button>
         </div>
 
@@ -97,22 +146,22 @@ function CreateAgentModal({ isOpen, onClose, onAgentCreate, availableSkills = []
           
           <div style={{ marginBottom: '16px' }}>
             <label style={labelStyle}>Agent Name <span style={{ color: '#ef4444' }}>*</span></label>
-            <input type="text" value={name} onChange={e => setName(e.target.value)} style={inputStyle} placeholder="e.g. Code Reviewer Bot" />
+            <input type="text" value={name} onChange={e => setName(e.target.value)} style={inputStyle} placeholder="e.g. Scout" />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
             <label style={labelStyle}>Role <span style={{ color: '#ef4444' }}>*</span></label>
-            <input type="text" value={role} onChange={e => setRole(e.target.value)} style={inputStyle} placeholder="e.g. Senior Backend Engineer" />
+            <input type="text" value={role} onChange={e => setRole(e.target.value)} style={inputStyle} placeholder="e.g. Market Researcher" />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
             <label style={labelStyle}>Goal</label>
-            <textarea value={goal} onChange={e => setGoal(e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} rows={2} placeholder="What is this agent's primary objective?" />
+            <textarea value={goal} onChange={e => setGoal(e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} rows={2} placeholder="What PM outcome should this agent drive?" />
           </div>
 
           <div style={{ marginBottom: '16px' }}>
             <label style={labelStyle}>Backstory</label>
-            <textarea value={backstory} onChange={e => setBackstory(e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} rows={3} placeholder="Give them a persona or history to guide their responses." />
+            <textarea value={backstory} onChange={e => setBackstory(e.target.value)} style={{ ...inputStyle, resize: 'vertical' }} rows={3} placeholder="Optional operating context or persona for the agent." />
           </div>
 
           <div style={{ marginBottom: '16px', display: 'flex', gap: '16px' }}>
@@ -144,16 +193,40 @@ function CreateAgentModal({ isOpen, onClose, onAgentCreate, availableSkills = []
             </div>
           </div>
 
+          <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: '1fr 1.4fr', gap: '16px' }}>
+            <div>
+              <label style={labelStyle}>Provider</label>
+              <select value={provider} onChange={e => setProvider(e.target.value)} style={inputStyle}>
+                <option value="groq">groq</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Model</label>
+              <input type="text" value={model} onChange={e => setModel(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={labelStyle}>System Prompt</label>
+            <textarea
+              value={systemPrompt}
+              onChange={e => setSystemPrompt(e.target.value)}
+              style={{ ...inputStyle, resize: 'vertical' }}
+              rows={3}
+              placeholder="Optional system prompt for the PM agent."
+            />
+          </div>
+
           {/* Skills */}
           <div style={{ marginBottom: '16px' }}>
             <label style={labelStyle}>Skills</label>
             
             {/* Dynamic System Skills */}
-            {availableSkills.length > 0 && (
+            {skillCatalog.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                {availableSkills.map(s => (
+                {skillCatalog.map(s => (
                   <button 
-                    key={s.id}
+                    key={s.id || s.name}
                     onClick={(e) => {
                       e.preventDefault();
                       if (skills.includes(s.name)) handleRemoveSkill(s.name);
@@ -211,8 +284,8 @@ function CreateAgentModal({ isOpen, onClose, onAgentCreate, availableSkills = []
           {/* Priority */}
           <div style={{ marginBottom: '16px' }}>
              <label style={labelStyle}>Priority Level</label>
-             <div style={{ display: 'flex', gap: '8px' }}>
-               {['Low', 'Medium', 'High'].map(level => (
+             <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+               {['Low', 'Medium', 'High', 'Critical'].map(level => (
                  <button
                    key={level}
                    onClick={() => setPriority(level)}
@@ -224,6 +297,32 @@ function CreateAgentModal({ isOpen, onClose, onAgentCreate, availableSkills = []
                    }}
                  >
                    {level}
+                 </button>
+               ))}
+             </div>
+
+             <label style={{ ...labelStyle, fontSize: '11px' }}>Agent State</label>
+             <div style={{ display: 'flex', gap: '8px' }}>
+               {[
+                 ['Active', true],
+                 ['Paused', false],
+               ].map(([label, value]) => (
+                 <button
+                   key={label}
+                   onClick={() => setIsActive(value)}
+                   style={{
+                     flex: 1,
+                     padding: '8px',
+                     borderRadius: '6px',
+                     cursor: 'pointer',
+                     fontSize: '13px',
+                     fontWeight: 'bold',
+                     backgroundColor: isActive === value ? '#334155' : 'transparent',
+                     color: isActive === value ? '#fff' : '#94a3b8',
+                     border: `1px solid ${isActive === value ? '#64748b' : '#334155'}`,
+                   }}
+                 >
+                   {label}
                  </button>
                ))}
              </div>
@@ -247,7 +346,7 @@ function CreateAgentModal({ isOpen, onClose, onAgentCreate, availableSkills = []
               color: '#0d0d0d', border: 'none', cursor: (!name || !role) ? 'not-allowed' : 'pointer', fontWeight: 'bold' 
             }}
           >
-            Create Agent
+            {initialAgent ? 'Save Agent' : 'Create Agent'}
           </button>
         </div>
       </div>

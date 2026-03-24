@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import bus from '../EventBus';
 import { supabase } from '../supabaseClient';
+import { WS_BASE } from '../utils/api';
 
 // ── Strip any ReAct leftovers that slip through backend ───────────────────────
 function stripReact(text) {
@@ -20,7 +21,7 @@ function agentColor(name, agents) {
   return color;
 }
 
-const WS_URL = 'ws://127.0.0.1:8000/ws';
+const WS_URL = `${WS_BASE}/ws`;
 
 function AgentChat({ agents = [], fullWidth = false }) {
   const [messages, setMessages] = useState([]);
@@ -145,7 +146,7 @@ function AgentChat({ agents = [], fullWidth = false }) {
                  // Persist final message to Supabase asynchronously
                  supabase.from('vo_chat_messages').insert({
                    id: msgId, sender: data.agent, msg_type: 'agent', color, text: data.text, tokens: data.tokens || 0
-                 }).then(({ error }) => { if (error) console.error('DB Insert Error:', error); });
+                 }).catch(() => {});
 
                  return [...withoutThought, {
                    id: msgId,
@@ -263,7 +264,7 @@ function AgentChat({ agents = [], fullWidth = false }) {
     // Save user message to Supabase
     supabase.from('vo_chat_messages').insert({
       id: newId, sender: 'You', msg_type: 'user', color: '#fff', text: inputValue, tokens: 0
-    }).then(({ error }) => { if (error) console.error('DB Insert Error:', error); });
+    }).catch(() => {});
 
     setMessages(prev => [...prev, userMsg]);
     pendingMsg.current = inputValue;
@@ -384,7 +385,7 @@ function AgentChat({ agents = [], fullWidth = false }) {
   // ── MAIN RENDER ───────────────────────────────────────────────────────────────
   return (
     <div className="glass-card" style={{
-      width: fullWidth ? '100%' : '320px', flexShrink: 0,
+      width: fullWidth ? 'auto' : '320px', flex: fullWidth ? 1 : '0 0 auto', flexShrink: 0,
       display: 'flex', flexDirection: 'column',
       border: 'none', borderRadius: '0',
       borderRight: '1px solid rgba(255,255,255,0.1)'

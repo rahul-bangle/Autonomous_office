@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-const Tasks = ({ tasks = [], onUpdateTask, fullPage = false }) => {
+const Tasks = ({ tasks = [], agents = [], onUpdateTask, fullPage = false }) => {
   const columns = ['To Do', 'In Progress', 'Done'];
 
-  const getPriorityColor = (p) => {
-    if (p === 'Critical') return '#ef4444';
-    if (p === 'High') return '#f97316';
-    if (p === 'Medium') return '#eab308';
+  const getPriorityColor = (priority) => {
+    if (priority === 'Critical') return '#ef4444';
+    if (priority === 'High') return '#f97316';
+    if (priority === 'Medium') return '#eab308';
     return '#64748b';
   };
 
@@ -16,58 +16,75 @@ const Tasks = ({ tasks = [], onUpdateTask, fullPage = false }) => {
     onUpdateTask?.(task.id, columns[nextIndex]);
   };
 
+  const resolveAssignee = (task) => {
+    if (!task.assignee_agent_id || task.assignee_agent_id === 'unassigned') return 'Unassigned';
+    return agents.find((agent) => String(agent.id) === String(task.assignee_agent_id))?.name || 'Unassigned';
+  };
+
   return (
-    <div className="custom-scrollbar" style={{ 
-      display: 'grid', 
-      gridTemplateColumns: fullPage ? 'repeat(3, 1fr)' : '1fr', 
-      gap: '24px', 
-      color: '#fff',
-      height: fullPage ? 'calc(100vh - 200px)' : 'auto'
-    }}>
-      {columns.map(col => (
-        <div key={col} style={{ 
-          display: 'flex', flexDirection: 'column', gap: '15px',
-          backgroundColor: fullPage ? 'rgba(255,255,255,0.01)' : 'transparent',
-          padding: fullPage ? '15px' : '0',
-          borderRadius: '12px'
-        }}>
-          <div style={{ 
-            fontSize: '12px', fontWeight: 'bold', color: 'rgba(255,255,255,0.3)', 
-            marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '1px',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            borderBottom: fullPage ? '1px solid rgba(255,255,255,0.05)' : 'none',
-            paddingBottom: fullPage ? '10px' : '0'
-          }}>
-            <span>{col}</span>
-            <span style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: '10px', fontSize: '10px' }}>
-              {tasks.filter(t => t.status === col).length}
+    <div
+      className="custom-scrollbar"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: fullPage ? 'repeat(3, 1fr)' : '1fr',
+        gap: '24px',
+        color: '#fff',
+        height: fullPage ? 'calc(100vh - 230px)' : 'auto',
+      }}
+    >
+      {columns.map((column) => (
+        <div
+          key={column}
+          className="glass-card"
+          style={{
+            padding: '18px',
+            borderRadius: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '260px',
+            background: 'rgba(10,14,22,0.86)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '800' }}>{column}</h3>
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', padding: '4px 8px', borderRadius: '999px', background: 'rgba(255,255,255,0.05)' }}>
+              {tasks.filter((task) => task.status === column).length}
             </span>
           </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
-            {tasks.filter(t => t.status === col).map(task => (
-              <div 
-                key={task.id} 
-                className="glass-card" 
+
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {tasks.filter((task) => task.status === column).map((task) => (
+              <button
+                key={task.id}
                 onClick={() => cycleStatus(task)}
-                style={{ 
-                  padding: '16px', borderRadius: '12px', borderLeft: `4px solid ${getPriorityColor(task.priority)}`,
-                  backgroundColor: 'rgba(255,255,255,0.03)', cursor: 'pointer', transition: 'all 0.2s',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.06)',
+                  borderRadius: '14px',
+                  padding: '14px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
                 }}
               >
-                <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#fff' }}>{task.title}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: getPriorityColor(task.priority) }} />
-                    <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{task.assignee}</span>
-                  </div>
-                  <span style={{ fontSize: '10px', color: getPriorityColor(task.priority), fontWeight: '900', textTransform: 'uppercase' }}>
-                    {task.priority}
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
+                  <div style={{ fontSize: '14px', fontWeight: '700', lineHeight: '1.5' }}>{task.title}</div>
+                  <span style={{ fontSize: '11px', color: getPriorityColor(task.priority), textTransform: 'uppercase' }}>{task.priority}</span>
                 </div>
-              </div>
+
+                <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', lineHeight: '1.6', marginBottom: '10px' }}>
+                  {task.description || 'No description yet.'}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>
+                  <span>{resolveAssignee(task)}</span>
+                  <span>{task.module || 'general'}</span>
+                </div>
+              </button>
             ))}
+
+            {tasks.filter((task) => task.status === column).length === 0 && (
+              <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px' }}>No tasks in this column.</div>
+            )}
           </div>
         </div>
       ))}

@@ -5,6 +5,7 @@ import os
 import re
 import json
 import asyncio
+import hashlib
 from datetime import datetime, timezone
 from ddgs import DDGS
 from dotenv import load_dotenv
@@ -209,6 +210,38 @@ def get_agent_state(agentId: str | None = None):
 
 # ─── LAYOUT ───────────────────────────────────────────────────────────────────
 _layout_config: dict = {}
+_intel_cache: list[dict] = []
+
+def _seed_intel_items() -> list[dict]:
+    now = datetime.now(timezone.utc).isoformat()
+    return [
+        {
+            "id": "intel-seed-1",
+            "title": "PM tooling is converging around AI-assisted operating systems",
+            "summary": "Teams increasingly expect research, planning, and execution to sit in one workflow instead of separate tools.",
+            "source_url": "",
+            "source_name": "Seeded Intel",
+            "category": "Market",
+            "status": "new",
+            "confidence": "Medium",
+            "captured_by_agent_id": "scout",
+            "captured_at": now,
+            "raw_snippet": "Market direction is moving toward unified PM workspaces.",
+        },
+        {
+            "id": "intel-seed-2",
+            "title": "Competitors are shifting memory positioning toward decision support",
+            "summary": "Knowledge retention alone is table stakes. The real product wedge is what decisions get faster from that context.",
+            "source_url": "",
+            "source_name": "Seeded Intel",
+            "category": "Competitors",
+            "status": "actionable",
+            "confidence": "High",
+            "captured_by_agent_id": "strategist",
+            "captured_at": now,
+            "raw_snippet": "Context products now compete on decision velocity, not just storage.",
+        },
+    ]
 
 @app.get("/api/layout")
 def get_layout():
@@ -219,6 +252,113 @@ def set_layout(req: dict):
     global _layout_config
     _layout_config = req
     return {"status": "ok"}
+
+@app.get("/api/intel")
+async def get_intel():
+    global _intel_cache
+    if not _intel_cache:
+        _intel_cache = _seed_intel_items()
+    return {"items": _intel_cache}
+
+@app.post("/api/intel/refresh")
+async def refresh_intel():
+    global _intel_cache
+
+    queries = [
+        ("product management AI software trends", "Market"),
+        ("startup productivity tool competitor launch", "Competitors"),
+        ("customer feedback product management workflow", "Customer Signal"),
+    ]
+
+    items = []
+    for query, category in queries:
+        try:
+            results = []
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, max_results=2))
+            for index, result in enumerate(results):
+                item_key = f"{query}-{index}-{result.get('href', '')}"
+                items.append({
+                    "id": f"intel-{hashlib.md5(item_key.encode('utf-8')).hexdigest()[:12]}",
+                    "title": result.get("title") or query.title(),
+                    "summary": result.get("body") or "No summary available.",
+                    "source_url": result.get("href", ""),
+                    "source_name": "DuckDuckGo",
+                    "category": category,
+                    "status": "new",
+                    "confidence": "Medium",
+                    "captured_by_agent_id": "scout",
+                    "captured_at": datetime.now(timezone.utc).isoformat(),
+                    "raw_snippet": result.get("body") or "",
+                })
+        except Exception:
+            continue
+
+    if items:
+        existing = {item["id"]: item for item in _intel_cache}
+        for item in items:
+            existing[item["id"]] = item
+        _intel_cache = list(existing.values())
+    elif not _intel_cache:
+        _intel_cache = _seed_intel_items()
+
+    return {"items": _intel_cache[:12]}
+
+@app.get("/api/connections")
+def get_connections():
+    return {
+        "connections": [
+            {
+                "key": "supabase",
+                "label": "Supabase",
+                "status": "connected" if SUPABASE_URL and SUPABASE_KEY else "needs_setup",
+                "description": "Primary persistence layer for PM entities.",
+                "last_checked_at": datetime.now(timezone.utc).isoformat(),
+            },
+            {
+                "key": "github",
+                "label": "GitHub",
+                "status": "connected",
+                "description": "Codebase source and delivery workflow.",
+                "last_checked_at": datetime.now(timezone.utc).isoformat(),
+            },
+            {
+                "key": "openrouter",
+                "label": "OpenRouter",
+                "status": "connected" if os.environ.get("OPENROUTER_API_KEY") else "needs_setup",
+                "description": "Optional multi-model routing layer.",
+                "last_checked_at": datetime.now(timezone.utc).isoformat(),
+            },
+            {
+                "key": "telegram",
+                "label": "Telegram",
+                "status": "connected" if os.environ.get("TELEGRAM_BOT_TOKEN") else "needs_setup",
+                "description": "Notification and ops channel.",
+                "last_checked_at": datetime.now(timezone.utc).isoformat(),
+            },
+            {
+                "key": "pinecone",
+                "label": "Pinecone",
+                "status": "needs_setup",
+                "description": "Future vector memory backend.",
+                "last_checked_at": datetime.now(timezone.utc).isoformat(),
+            },
+            {
+                "key": "youtube",
+                "label": "YouTube",
+                "status": "needs_setup",
+                "description": "Reserved for future content and analytics ingestion.",
+                "last_checked_at": datetime.now(timezone.utc).isoformat(),
+            },
+            {
+                "key": "instagram",
+                "label": "Instagram",
+                "status": "needs_setup",
+                "description": "Reserved for future social tracking.",
+                "last_checked_at": datetime.now(timezone.utc).isoformat(),
+            },
+        ]
+    }
 
 # ─── SHARED HELPER ────────────────────────────────────────────────────────────
 NO_REACT_RULE = (
