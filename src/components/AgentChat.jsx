@@ -22,7 +22,7 @@ function agentColor(name, agents) {
 
 const WS_URL = 'ws://127.0.0.1:8000/ws';
 
-function AgentChat({ agents = [] }) {
+function AgentChat({ agents = [], fullWidth = false }) {
   const [messages, setMessages] = useState([]);
   const [dbLoaded, setDbLoaded] = useState(false);
   const [inputValue, setInputValue]   = useState('');
@@ -383,22 +383,24 @@ function AgentChat({ agents = [] }) {
 
   // ── MAIN RENDER ───────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      width: '280px', flexShrink: 0,
-      backgroundColor: 'var(--bg-chat)',
+    <div className="glass-card" style={{
+      width: fullWidth ? '100%' : '320px', flexShrink: 0,
       display: 'flex', flexDirection: 'column',
-      borderRight: '1px solid var(--border-color)'
+      border: 'none', borderRadius: '0',
+      borderRight: '1px solid rgba(255,255,255,0.1)'
     }}>
       {/* Header */}
       <div style={{
-        padding: '16px 24px', borderBottom: '1px solid var(--border-color)',
-        display: 'flex', alignItems: 'center', gap: '8px'
+        padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)',
+        display: 'flex', alignItems: 'center', gap: '8px',
+        backgroundColor: 'rgba(255,255,255,0.02)'
       }}>
-        <h2 style={{ fontSize: '16px', color: '#fff', fontWeight: 'normal' }}>Agent Chat</h2>
+        <h2 style={{ fontSize: '14px', color: '#fff', fontWeight: 'bold', letterSpacing: '0.5px' }}>TRANSMISSION LOG</h2>
         {/* WS status dot */}
         <div style={{
-          width: '8px', height: '8px', borderRadius: '50%',
+          width: '6px', height: '6px', borderRadius: '50%',
           backgroundColor: statusColor,
+          boxShadow: `0 0 8px ${statusColor}`,
           animation: wsStatus === 'connecting' ? 'blink 1.5s infinite' : isLoading ? 'blink 1.5s infinite' : 'none'
         }} />
         {isLoading && (
@@ -418,16 +420,16 @@ function AgentChat({ agents = [] }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
+      {/* Input area */}
       <div style={{
-        padding: '16px', borderTop: '1px solid var(--border-color)',
+        padding: '16px', borderTop: '1px solid rgba(255,255,255,0.1)',
         display: 'flex', gap: '8px'
       }}>
         <input
           type="text"
           placeholder={
             wsStatus !== 'connected' ? 'Connecting…' :
-            isLoading ? 'Agents working…' : 'Type a message…'
+            isLoading ? 'Agents working…' : 'Enter command…'
           }
           value={inputValue}
           onChange={e => setInputValue(e.target.value)}
@@ -435,9 +437,10 @@ function AgentChat({ agents = [] }) {
           disabled={isLoading || wsStatus !== 'connected'}
           style={{
             flex: 1, minWidth: 0,
-            backgroundColor: '#111', border: '1px solid var(--border-color)',
-            borderRadius: '6px', padding: '10px 14px',
-            color: '#fff', fontFamily: 'monospace', outline: 'none',
+            backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '8px', padding: '10px 16px',
+            color: '#fff', fontFamily: 'Inter, sans-serif', outline: 'none',
+            fontSize: '13px',
             opacity: (isLoading || wsStatus !== 'connected') ? 0.5 : 1
           }}
         />
@@ -445,11 +448,11 @@ function AgentChat({ agents = [] }) {
           onClick={handleSend}
           disabled={isLoading || wsStatus !== 'connected'}
           style={{
-            backgroundColor: (isLoading || wsStatus !== 'connected') ? '#475569' : 'var(--primary)',
-            color: '#0d0d0d', fontWeight: 'bold',
-            padding: '0 20px', borderRadius: '6px',
+            backgroundColor: (isLoading || wsStatus !== 'connected') ? 'rgba(255,255,255,0.05)' : 'var(--primary)',
+            color: '#000', fontWeight: 'bold',
+            padding: '0 20px', borderRadius: '8px',
             cursor: (isLoading || wsStatus !== 'connected') ? 'not-allowed' : 'pointer',
-            border: 'none'
+            border: 'none', fontSize: '13px', transition: 'all 0.2s'
           }}
         >Send</button>
       </div>

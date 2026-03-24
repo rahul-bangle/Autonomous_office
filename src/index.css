@@ -1,18 +1,21 @@
 :root {
-  --bg-main: #0d0d0d;
-  --bg-panel: #111111;
-  --bg-chat: #0a0a0a;
-  --bg-card: #161616;
-  --bg-canvas: #f5e6c8;
-  --border-color: #2a2a2a;
-  --header-border: #222222;
+  /* Origin Command Theme - Kailash v1.0 */
+  --bg-kailash-main: #050505;
+  --bg-kailash-card: rgba(255, 255, 255, 0.03);
+  --bg-kailash-glass: rgba(10, 10, 10, 0.7);
+  
+  --bg-origin-main: var(--bg-kailash-main);
+  --bg-origin-card: var(--bg-kailash-card);
+  
+  --glass-blur: 16px; /* Enhanced blur for more premium feel */
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08); /* Sophisticated border */
+  --glass-highlight: rgba(255, 255, 255, 0.04);
   
   --primary: #22c55e;
   --accent: #a855f7;
-  --writer-color: #f97316; /* orange */
-  
   --text-main: #ffffff;
-  --text-muted: #888888;
+  --text-muted: rgba(255, 255, 255, 0.45);
+  --font-main: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 * {
@@ -22,11 +25,28 @@
 }
 
 body {
-  font-family: monospace;
-  background-color: var(--bg-main);
+  font-family: var(--font-main);
+  background-color: var(--bg-origin-main);
   color: var(--text-main);
   height: 100vh;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.glass-card {
+  background: var(--bg-origin-card);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: var(--glass-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-header {
+  background: rgba(5, 5, 5, 0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: var(--glass-border);
 }
 
 #root {

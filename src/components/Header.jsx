@@ -14,50 +14,37 @@ function Header({ onMeeting, onToggleDebug, showDebug, onToggleEdit, isEditMode 
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      backgroundColor: '#0d0d0d',
-      borderBottom: '1px solid #222',
-      padding: '8px 20px',
-      userSelect: 'none',
-      zIndex: 100
+    <header className="glass-header" style={{
+      height: '60px', flexShrink: 0, 
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      padding: '0 24px', position: 'relative', zIndex: 100,
+      borderBottom: '1px solid rgba(255,255,255,0.1)'
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ color: '#fff', fontSize: '16px', fontWeight: 'bold', letterSpacing: '1px' }}>OFFICE OS</span>
-          <span style={{ color: '#555', fontSize: '9px', fontWeight: 'bold' }}>SYSTEM CONTROL v2.1</span>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#000', fontWeight: 'bold' }}>O</div>
+        <h1 style={{ fontSize: '18px', fontWeight: '800', letterSpacing: '-0.5px', color: '#fff' }}>ORIGIN <span style={{ color: 'var(--primary)', fontWeight: '400' }}>COMMAND</span></h1>
+      </div>
 
-        <div style={{ display: 'flex', gap: '8px', marginLeft: '20px' }}>
-          <button onClick={onMeeting} style={{ ...btnStyle, borderColor: '#3b82f6', color: '#60a5fa' }}>
-            👥 Meeting
-          </button>
-          <button onClick={onToggleEdit} style={{ 
-            ...btnStyle, 
-            borderColor: isEditMode ? '#ef4444' : '#10b981',
-            color: isEditMode ? '#f87171' : '#34d399',
-            backgroundColor: isEditMode ? 'rgba(239,68,68,0.1)' : 'transparent'
-          }}>
-            {isEditMode ? '💾 Save Layout' : '🛠 Edit Layout'}
-          </button>
-          <button onClick={onToggleDebug} style={{ 
-            ...btnStyle, 
-            borderColor: showDebug ? '#fbbf24' : '#444',
-            color: showDebug ? '#fbbf24' : '#888'
-          }}>
-            {showDebug ? '🔍 Debug ON' : '🔍 Debug OFF'}
-          </button>
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <button onClick={onMeeting} className="glass-card" style={{ 
+          padding: '6px 16px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)',
+          color: '#60a5fa', fontSize: '12px', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer'
+        }}>
+          Meeting
+        </button>
+        <button onClick={onToggleEdit} className="glass-card" style={{ 
+          padding: '6px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+          color: isEditMode ? 'var(--primary)' : '#fff', fontSize: '12px', fontWeight: 'bold', borderRadius: '6px', cursor: 'pointer'
+        }}>
+          {isEditMode ? 'Save Layout' : 'Edit Layout'}
+        </button>
+        <div style={{ display: 'flex', gap: '6px', marginLeft: '12px' }}>
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ff5f56' }} />
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ffbd2e' }} />
+          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#27c93f' }} />
         </div>
       </div>
-      
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ff5f56', boxShadow: '0 0 5px #ff5f5680' }} />
-        <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ffbd2e', boxShadow: '0 0 5px #ffbd2e80' }} />
-        <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#27c93f', boxShadow: '0 0 5px #27c93f80' }} />
-      </div>
-    </div>
+    </header>
   );
 }
 

@@ -16,6 +16,9 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 async def fetch_agent_memories(agent_name: str) -> str:
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        print(f"Skipping memory fetch for {agent_name} (Missing Supabase Credentials)")
+        return ""
     try:
         async with httpx.AsyncClient() as client:
             headers = {"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
@@ -33,6 +36,8 @@ async def fetch_agent_memories(agent_name: str) -> str:
     return ""
 
 async def reflect_and_store_memory(agent_name: str, user_msg: str, agent_msg: str, groq_key: str):
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return
     prompt = f"""You are {agent_name}. Review the recent exchange.
 User said: "{user_msg}"
 You replied: "{agent_msg}"
@@ -133,6 +138,28 @@ async def startup_event():
 @app.get("/health")
 def health():
     return {"status": "ok", "version": "2.0"}
+
+@app.get("/api/ceo/status")
+def get_ceo_status():
+    state_file = os.path.join(PROJECT_ROOT, ".office", "state.json")
+    if not os.path.exists(state_file):
+        return {"status": "stopped"}
+    try:
+        with open(state_file, "r") as f:
+            data = json.load(f)
+        
+        ts_str = data.get("ts")
+        if ts_str:
+            from datetime import datetime, timezone
+            ts = datetime.fromisoformat(ts_str)
+            now = datetime.now(ts.tzinfo)
+            if (now - ts).total_seconds() > 120:  # 2 minutes stale
+                return {"status": "stopped"}
+        
+        is_running = data.get("status") in ["scanning", "executing"]
+        return {"status": "running" if is_running else "stopped"}
+    except Exception:
+        return {"status": "stopped"}
 
 app.add_middleware(
     CORSMiddleware,

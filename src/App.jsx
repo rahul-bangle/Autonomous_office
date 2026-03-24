@@ -2,9 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient';
 import Header from './components/Header';
 import OfficeCanvas from './components/OfficeCanvas';
+import OfficeCanvas3D from './components/OfficeCanvas3D';
 import LeftPanel from './components/LeftPanel';
 import AgentChat from './components/AgentChat';
 import CreateAgentModal from './components/CreateAgentModal';
+import Roadmap from './components/Roadmap';
+import Tasks from './components/Tasks';
 import bus from './EventBus';
 
 import { ROOMS, PRIORITY_ORDER } from './constants';
@@ -19,16 +22,74 @@ const initialAgents = [
 
 function App() {
   const [agents, setAgents]         = useState(initialAgents);
+  const [availableSkills, setAvailableSkills] = useState([
+    'Research', 'Strategy', 'Planning', 'Analysis', 'Execution', 'Coding', 
+    'Web Search', 'Copywriting', 'Documentation', 'Quality Assurance', 'Leadership'
+  ]);
   const [dbLoaded, setDbLoaded]     = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [availableSkills, setAvailableSkills] = useState([]);
   const [meetingMode, setMeetingMode] = useState(false);
+  const [activeTab, setActiveTab]     = useState('office');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showHints, setShowHints]   = useState(false);
   const [showDebug, setShowDebug]   = useState(false);
   const [toasts, setToasts]         = useState([]);
+  const [events, setEvents]         = useState([
+    { agent: 'System', text: 'Origin Command Online', time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), color: '#10b981' },
+    { agent: 'Strategist', text: 'Phase 2: Project Intelligence active', time: '01:50 AM', color: '#f59e0b' }
+  ]);
+
+  // ── Phase 2: Native Task & Roadmap State ───────────────────────────
+  const [tasks, setTasks] = useState(() => {
+    const saved = localStorage.getItem('vo_tasks');
+    return saved ? JSON.parse(saved) : [
+      { id: 't1', title: 'Implement Roadmap UI', status: 'Done', priority: 'High', assignee: 'Scout' },
+      { id: 't2', title: 'Neuralize Supabase Backend', status: 'Done', priority: 'Critical', assignee: 'Strategist' },
+      { id: 't3', title: 'Contextual Intelligence', status: 'In Progress', priority: 'Medium', assignee: 'Scout' },
+      { id: 't4', title: 'Auto-Reporting Module', status: 'To Do', priority: 'Low', assignee: 'Unassigned' },
+    ];
+  });
+
+  const [milestones, setMilestones] = useState(() => {
+    const saved = localStorage.getItem('vo_milestones');
+    return saved ? JSON.parse(saved) : [
+      { id: 1, title: 'Phase 1: Dashboard Shell', status: 'completed', date: 'Mar 2026', items: ['Glassmorphism UI', 'Supabase Neutralization', 'Agent Edit Form'] },
+      { id: 2, title: 'Phase 2: Project Intelligence', status: 'active', date: 'Current', items: ['Native Roadmap', 'Internal Kanban Board', 'Contextual Intelligence'] },
+      { id: 3, title: 'Phase 3: Multi-Agent Workflows', status: 'upcoming', date: 'Apr 2026', items: ['Assembly Pipeline v2', 'Conflict Resolution', 'Auto-Reporting'] }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('vo_tasks', JSON.stringify(tasks));
+  }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem('vo_milestones', JSON.stringify(milestones));
+  }, [milestones]);
+
+  const addToast = (message) => { // Assuming addToast is defined elsewhere or needs to be added
+    const id = Date.now() + Math.random();
+    setToasts(t => [...t, { id, message }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3000);
+  };
+
+  const handleUpdateTask = (taskId, newStatus) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    const task = tasks.find(t => t.id === taskId);
+    addToast(`Task "${task.title}" moved to ${newStatus}`);
+    
+    // Add to Live Feed
+    setEvents(prev => [{
+      agent: task.assignee !== 'Unassigned' ? task.assignee : 'System',
+      text: `Moved "${task.title}" to ${newStatus}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      color: task.assignee === 'Scout' ? '#3b82f6' : task.assignee === 'Strategist' ? '#f59e0b' : '#64748b'
+    }, ...prev].slice(0, 20));
+  };
   const [layoutConfig, setLayoutConfig] = useState(null);
   const [isEditMode, setIsEditMode]   = useState(false);
+  const [view3D, setView3D]           = useState(true);
   
   // ── LOAD AGENTS FROM SUPABASE ────────────────────────────────────────────────
   useEffect(() => {
@@ -79,10 +140,11 @@ function App() {
   const taskTimersRef = React.useRef([]);
 
   useEffect(() => {
+    // Fetch dynamic skills with fallback to local state
     fetch('http://localhost:8000/api/skills')
       .then(res => res.json())
       .then(data => { if (data.skills) setAvailableSkills(data.skills); })
-      .catch(err => console.error("Error fetching skills:", err));
+      .catch(err => console.warn("[App] Using local skill fallbacks:", err));
 
     fetch('http://localhost:8000/api/layout')
       .then(res => res.json())
@@ -142,6 +204,36 @@ function App() {
 
     return () => { unsubStart(); unsubDone(); };
   }, []);
+
+  // Auto-collapse sidebar on Home tab for clean focus
+  useEffect(() => {
+    if (activeTab === 'home') {
+      setIsSidebarCollapsed(true);
+    }
+  }, [activeTab]);
+
+  // ── POLL CEO STATUS ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!dbLoaded) return;
+    const interval = setInterval(() => {
+      fetch('http://localhost:8000/api/ceo/status')
+        .then(res => res.json())
+        .then(data => {
+          setAgents(prev => {
+            const ceoIndex = prev.findIndex(a => a.role && a.role.toLowerCase() === 'executive');
+            if (ceoIndex === -1) return prev;
+            if (prev[ceoIndex].status !== data.status && ['running', 'stopped'].includes(data.status)) {
+               const next = [...prev];
+               next[ceoIndex] = { ...next[ceoIndex], status: data.status };
+               return next;
+            }
+            return prev;
+          });
+        })
+        .catch(err => console.debug("CEO status poll error:", err));
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [dbLoaded]);
 
   // ── MEETING TOGGLE ──────────────────────────────────────────────────────────
   const toggleMeeting = () => {
@@ -247,35 +339,97 @@ function App() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--bg-main)' }}>
-      <Header onMeeting={toggleMeeting}
-                onToggleDebug={() => setShowDebug(!showDebug)}
-                showDebug={showDebug}
-                onToggleEdit={() => setIsEditMode(!isEditMode)}
-                isEditMode={isEditMode}
-        />
+    <div className="app-container" style={{ 
+      backgroundColor: 'var(--bg-kailash-main)',
+      height: '100vh', display: 'flex', flexDirection: 'column',
+      overflow: 'hidden', position: 'relative'
+    }}>
+      <Header onOpenModal={() => setIsModalOpen(true)} meetingActive={meetingMode} />
 
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <AgentChat agents={agents} />
-        <div style={{ display: 'flex', flex: 2, position: 'relative', overflow: 'hidden' }}>
-            <OfficeCanvas
-              agents={sortedAgents}
-              onMeeting={meetingMode}
-              todTint={todTint.overlay}
-              debugMode={showDebug}
-              layoutConfig={layoutConfig}
-              isEditMode={isEditMode}
-              onSaveLayout={saveLayout}
-            />
-</div>
         <LeftPanel
-          agents={sortedAgents}
+          agents={agents}
           onOpenModal={() => setIsModalOpen(true)}
           onEditAgent={handleEditAgent}
           onRemoveAgent={handleRemoveAgent}
-          onMeeting={toggleMeeting}
+          onMeeting={() => setMeetingMode(!meetingMode)}
           meetingActive={meetingMode}
+          tasks={tasks}
+          milestones={milestones}
+          events={events}
+          onUpdateTask={handleUpdateTask}
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          isCollapsed={isSidebarCollapsed}
+          onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
         />
+        
+        <div style={{ 
+          display: 'flex', 
+          flex: 1, 
+          position: 'relative', 
+          overflow: 'hidden',
+          backgroundColor: '#000', // Deep black background for main area
+        }}>
+          {activeTab === 'home' && (
+            <OfficeCanvas 
+              agents={agents} 
+              onMeeting={meetingMode}
+              ceoConfig={{ name: 'Rahul', color: '#d4af37', skin: '#fde8c8', shoe: '#1a0a00', emoji: '👑' }}
+              layoutConfig={layoutConfig}
+            />
+          )}
+
+          {activeTab === 'office' && (
+            <div style={{ flex: 1, position: 'relative', display: 'flex' }}>
+              <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 100, display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setView3D(!view3D)}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)',
+                    background: view3D ? 'rgba(59,130,246,0.2)' : 'rgba(30,41,59,0.4)',
+                    color: '#fff', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
+                    backdropFilter: 'blur(8px)', boxShadow: view3D ? '0 0 15px rgba(59,130,246,0.3)' : 'none'
+                  }}
+                >
+                  {view3D ? '🚀 3D ACTIVE' : '🗺️ 2D VIEW'}
+                </button>
+              </div>
+              {view3D ? (
+                <OfficeCanvas3D agents={agents} onMeeting={meetingMode} />
+              ) : (
+                <AgentChat agents={agents} fullWidth />
+              )}
+            </div>
+          )}
+
+          {activeTab === 'tasks' && (
+            <div style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
+              <div style={{ marginBottom: '30px' }}>
+                <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Tasks & Projects</h1>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Manage and track all team tasks</p>
+              </div>
+              <Tasks tasks={tasks} onUpdateTask={handleUpdateTask} fullPage />
+            </div>
+          )}
+
+          {activeTab === 'roadmap' && (
+            <div style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
+              <div style={{ marginBottom: '30px' }}>
+                <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '8px' }}>Project Roadmap</h1>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Strategic timeline and milestones</p>
+              </div>
+              <Roadmap milestones={milestones} fullPage />
+            </div>
+          )}
+
+          {/* Fallback for other tabs */}
+          {!['office', 'tasks', 'roadmap'].includes(activeTab) && (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.2)' }}>
+              Module "{activeTab.toUpperCase()}" implementation in progress...
+            </div>
+          )}
+        </div>
       </div>
 
       <CreateAgentModal
